@@ -1,10 +1,11 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const ShortUrl = require("./shortUrl");
+require("dotenv").config();
 const app = express();
 
 mongoose
-  .connect("mongodb+srv://manishsencha:Psghcgueg.7@youwerehere.skqd6.mongodb.net/urlshortener?retryWrites=true&w=majority", {
+  .connect(process.env.DB_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
