@@ -10,6 +10,8 @@ See demo at : <a href="https://m-urlshortener.herokuapp.com" target="_blank">htt
   <li>Click on <code>Short</code></li>
   <li>The short URL will be in the last of the below list.</li>
 </ul>
+<br>
+
 ## Installation Instructions 
 
 <h4>Prerequisites</h4>
