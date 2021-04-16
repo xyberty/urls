@@ -2,7 +2,14 @@
 
 The tool is developed to generate short URLs for input URLs. <br>
 See demo at : <a href="https://m-urlshortener.herokuapp.com" target="_blank">https://m-urlshortener.herokuapp.com</a><br>
-
+##Usage 
+<h4>Usage instructions</h4>
+<ul>
+  <li>Visit the link <code>https://m-urlshortener.herokuapp.com</code></li>
+  <li>In the text field enter the URL to which you want to short</li>
+  <li>Click on <code>Short</code></li>
+  <li>The short URL will be in the last of the below list.</li>
+</ul>
 ## Installation Instructions 
 
 <h4>Prerequisites</h4>
