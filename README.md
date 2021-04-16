@@ -5,8 +5,8 @@ See demo at : <a href="https://m-urlshortener.herokuapp.com" target="_blank">htt
 
 ## Installation Instructions 
 
-<h1>Prerequisites</h1>
-<h2>You should have installed </h2>
+<h4>Prerequisites</h4>
+<h5>You should have installed </h5>
 <ul>
 <li>nodejs</li>
   <li>npm</li>
