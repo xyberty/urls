@@ -1,7 +1,8 @@
-# URL-Shortener
+# urls
 
-The tool is developed to generate short URLs for input URLs. <br>
-See demo at : <a href="https://m-urlshortener.herokuapp.com" target="_blank">https://m-urlshortener.herokuapp.com</a><br>
+The tool is developed by @manishcencha to generate short URLs for input URLs.
+
+See demo at: <a href="https://m-urlshortener.herokuapp.com" target="_blank">https://m-urlshortener.herokuapp.com</a>.
 
 ## Usage
 
