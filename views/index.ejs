@@ -17,7 +17,7 @@
     <div class="container">
       <h1>URL Shortener</h1>
       <form action="/shortUrls" method="POST" class="my-4 form-inline">
-        <label for="fullUrl" class="sr-only">Url</label>
+        <label for="fullUrl" class="sr-only">URL</label>
         <input
           required
           class="form-control mr-2 col"
@@ -26,18 +26,21 @@
           name="fullUrl"
           id="fullUrl"
         />
-        <button type="submit" class="btn btn-success">Short</button>
+        <label for="customSuffix" class="sr-only">Custom short URL</label>
+        <input name="customSuffix" id="customSuffix" class="form-control mr-2" placeholder="Short (optional)" />
+        <button type="submit" class="btn btn-success">Shorten</button>
       </form>
       <table class="table table-striped table-responsive">
         <thead>
           <tr>
-            <th>Full Url</th>
-            <th>Short Url</th>
+            <th>URL</th>
+            <th>Short link</th>
+            <th>Alias</th>
             <th>Clicks</th>
           </tr>
         </thead>
         <tbody>
-          <% shortUrls.forEach(shortUrl => {%>
+          <% shortUrls.sort((a, b) => b.updatedAt - a.updatedAt).forEach(shortUrl => {%>
             <tr>
                 <td>
                   <a href="<%= shortUrl.full %> "
@@ -45,6 +48,7 @@
                   >
                 </td>
                 <td><a href="<%= shortUrl.short %> "><%= shortUrl.short %> </a></td>
+                <td><%= shortUrl.alias.join(", ") %> </td>
                 <td><%= shortUrl.clicks %> </td>
               </tr>
           <% }) %>

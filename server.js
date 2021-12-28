@@ -19,14 +19,29 @@ app.get("/", async (req, res) => {
   const shortUrls = await ShortUrl.find();
   res.render("index", { shortUrls: shortUrls });
 });
+mongoose.set('debug', true);
 
 app.post("/shortUrls", async (req, res) => {
-  await ShortUrl.create({ full: req.body.fullUrl });
+  // await ShortUrl.create({ full: req.body.fullUrl });
+  const full = req.body.fullUrl;
+  var shortUrl = await ShortUrl.findOne({ full });
+  if (shortUrl) {
+    console.log(shortUrl);
+    if (req.body.customSuffix) {
+      shortUrl.alias.push(req.body.customSuffix);
+      await shortUrl.save();
+    }
+  } else {
+    shortUrl = new ShortUrl({ full: req.body.fullUrl });
+    (req.body.customSuffix) ? shortUrl.alias[0] = req.body.customSuffix : null;
+    await ShortUrl.create(shortUrl);
+  }
   res.redirect("/");
 });
 
 app.get("/:shortUrl", async (req, res) => {
-  const shortUrl = await ShortUrl.findOne({ short: req.params.shortUrl });
+  //const shortUrl = await ShortUrl.findOne({ short: req.params.shortUrl });
+  const shortUrl = await ShortUrl.findOne({ "$or": [ {short: req.params.shortUrl}, {alias: req.params.shortUrl}] });
   if (shortUrl == null) return res.sendStatus(404);
   shortUrl.clicks++;
   shortUrl.save();
