@@ -1,11 +1,11 @@
 {
   "name": "url-shortener",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "URL shortener app built using express and mongodb",
+  "main": "functions/server.js",
   "scripts": {
-    "start": "node server.js",
-    "runDev": "nodemon server.js"
+    "build": "netlify-lambda build src",
+    "start": "nodemon app.js"
   },
   "author": "",
   "license": "ISC",
@@ -14,6 +14,8 @@
     "ejs": "^3.1.6",
     "express": "^4.17.1",
     "mongoose": "^5.11.15",
+    "netlify-lambda": "^2.0.15",
+    "serverless-http": "^3.0.2",
     "shortid": "^2.2.16"
   },
   "devDependencies": {
