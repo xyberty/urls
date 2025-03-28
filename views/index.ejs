@@ -22,7 +22,7 @@
           required
           class="form-control mr-2 col"
           type="url"
-          placeholder="URL"
+          placeholder="Enter URL"
           name="fullUrl"
           id="fullUrl"
         />
@@ -30,6 +30,7 @@
         <input name="customSuffix" id="customSuffix" class="form-control mr-2" placeholder="Short (optional)" />
         <button type="submit" class="btn btn-success">Shorten</button>
       </form>
+      
       <table class="table table-striped table-responsive">
         <thead>
           <tr>
@@ -37,24 +38,24 @@
             <th>Short link</th>
             <th>Alias</th>
             <th>Clicks</th>
+            <th>Created At</th>
           </tr>
         </thead>
         <tbody>
-          <% shortUrls.sort((a, b) => b.updatedAt - a.updatedAt).forEach(shortUrl => {%>
+          <% shortUrls.forEach(shortUrl => { %>
             <tr>
-                <td>
-                  <a href="<%= shortUrl.full %> "
-                    ><%= shortUrl.full%></a
-                  >
-                </td>
-                <td><a href="<%= shortUrl.short %> "><%= shortUrl.short %> </a></td>
-                <td><%= shortUrl.alias.join(", ") %> </td>
-                <td><%= shortUrl.clicks %> </td>
-              </tr>
+              <td><%= shortUrl.full %></td>
+              <td><a href="/<%= shortUrl.short %>"><%= shortUrl.short %></a></td>
+              <td><a href="/<%= shortUrl.alias %>"><%= shortUrl.alias.join(", ") %></a></td>
+              <td><%= shortUrl.clicks %></td>
+              <td><%= new Date(shortUrl.createdAt).toLocaleString() %></td>
+            </tr>
           <% }) %>
-          
         </tbody>
       </table>
+      <% if (shortUrls.length === 0) { %>
+        <p>No URLs have been shortened yet.</p>
+      <% } %>
     </div>
   </body>
 </html>

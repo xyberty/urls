@@ -1,21 +1,21 @@
 const mongoose = require('mongoose')
-const shortId = require('shortid')
-
-shortId.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_!')
+const { nanoid } = require('nanoid')
 
 const shortUrlSchema = new mongoose.Schema({
     full: {
         type: String, 
-        required: true
+        required: true,
+        maxLength: 2048
     },
     short: {
         type: String, 
         required: true,
-        default: shortId.generate
+        default: () => nanoid(8),
+        index: true
     },
-    alias: {
-        type: [String]
-    },
+    alias: [{  // Array of custom aliases
+        type: String
+    }],
     clicks: {
         type: Number, 
         required: true, 
