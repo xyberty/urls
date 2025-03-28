@@ -7,6 +7,7 @@ require("dotenv").config();
 const app = express();
 const config = require('./config/config');
 const healthRoutes = require('./routes/health');
+const { nanoid } = require('nanoid')
 
 // Add error handling for logger import
 let logger;
@@ -48,8 +49,9 @@ async function connectToDatabase(retryCount = 0) {
     await mongoose.connect(config.db.url, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 2000,  // Add timeout of 5 seconds
+      serverSelectionTimeoutMS: 2000,
       connectTimeoutMS: 3000,
+      dbName: config.db.name,
     });
     logger.info("Connected to database!");
     startServer();
@@ -156,8 +158,8 @@ function startServer() {
       if (mongoose.connection.readyState === 1) {
         shortUrl = await ShortUrl.findOne({
           "$or": [
-            {short: req.params.shortUrl},
-            {alias: req.params.alias}
+            {alias: req.params.shortUrl},
+            {short: req.params.shortUrl}
           ]
         });
         if (shortUrl) {

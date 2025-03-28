@@ -5,6 +5,7 @@ const development = {
   },
   db: {
     url: process.env.DB_URL || 'mongodb://localhost:27017/urlshortener',
+    name: process.env.DB_NAME || 'urlshortener',
     debug: true
   },
   rateLimit: {
