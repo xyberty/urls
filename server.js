@@ -1,6 +1,10 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const session = require('express-session');
+let MongoStore = require('connect-mongo');
+if (MongoStore.default) {
+  MongoStore = MongoStore.default;
+}
 const ShortUrl = require("./shortUrl");
 require("dotenv").config();
 const app = express();
@@ -56,6 +60,7 @@ app.use(express.json());
 app.use('/health', healthRoutes);  // Only catch /health/* routes
 
 async function connectToDatabase(retryCount = 0) {
+  let connected = false;
   try {
     logger.info(`[${retryCount + 1}/${MAX_RETRIES + 1}] Attempting to connect to database...`);
     await mongoose.connect(config.db.url, {
@@ -66,7 +71,7 @@ async function connectToDatabase(retryCount = 0) {
       dbName: config.db.name,
     });
     logger.info("Connected to database!");
-    startServer();
+    connected = true;
   } catch (err) {
     logger.error(`Database connection error: ${err.message}`);
     
@@ -75,6 +80,7 @@ async function connectToDatabase(retryCount = 0) {
       setTimeout(() => {
         connectToDatabase(retryCount + 1);
       }, RETRY_DELAY);
+      return;
     } else {
       logger.error("Failed to connect to primary database after multiple attempts");
       logger.info("Initializing FileStore fallback...");
@@ -84,16 +90,22 @@ async function connectToDatabase(retryCount = 0) {
       global.fileStore = new FileStore();
       
       logger.info("FileStore initialized, starting server...");
-      startServer();
     }
+  }
+  
+  try {
+    startServer(connected);
+  } catch (err) {
+    logger.error(`Failed to start server: ${err.message}`);
+    process.exit(1);
   }
 }
 
-function startServer() {
+function startServer(useMongo = true) {
   logger.info("Starting server setup...");
   
   // Session configuration
-  app.use(session({
+  const sessionConfig = {
     secret: process.env.SESSION_SECRET || 'change-this-secret',
     resave: false,
     saveUninitialized: false,
@@ -102,7 +114,25 @@ function startServer() {
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
-  }));
+  };
+
+  if (useMongo && mongoose.connection.readyState === 1) {
+    logger.info("Using MongoStore for sessions");
+    try {
+      sessionConfig.store = MongoStore.create({
+        mongoUrl: config.db.url,
+        dbName: config.db.name,
+        ttl: 24 * 60 * 60 // 1 day
+      });
+    } catch (storeError) {
+      logger.error(`Failed to create MongoStore: ${storeError.message}`);
+      logger.warn("Falling back to MemoryStore");
+    }
+  } else {
+    logger.warn("Using MemoryStore for sessions (fallback)");
+  }
+
+  app.use(session(sessionConfig));
 
   // Owner context middleware
   // Validates owner token format: URL-safe characters (alphanumeric, dash, underscore, dot, tilde, at)
