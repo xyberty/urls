@@ -6,6 +6,7 @@ if (MongoStore.default) {
   MongoStore = MongoStore.default;
 }
 const ShortUrl = require("./shortUrl");
+const Space = require("./space");
 require("dotenv").config();
 const app = express();
 const config = require('./config/config');
@@ -145,90 +146,112 @@ function startServer(useMongo = true) {
     return /^[a-zA-Z0-9._~@-]+$/.test(token);
   }
 
-  app.use((req, res, next) => {
+  app.use(async (req, res, next) => {
     try {
-      // Skip redirect logic for API endpoints (POST requests to /change-owner, /delete, etc.)
-      // These endpoints can work without query params, they use cookies/body
+      const host = req.get('host');
+      const isDev = config.app.nodeEnv === 'development';
+      
+      // Allow localhost and 127.0.0.1 as management domains in development
+      const isManagementDomain = host === config.managementDomain || 
+        (isDev && (host.startsWith('localhost:') || host.startsWith('127.0.0.1:')));
+
+      // 1) Handle redirection domains (not management)
+      if (!isManagementDomain) {
+        // If it's the root of a redirection domain, redirect to management
+        if (req.path === '/' && req.method === 'GET') {
+          const protocol = isDev ? 'http' : 'https';
+          return res.redirect(`${protocol}://${config.managementDomain}`);
+        }
+        // Otherwise, just proceed (the /:shortUrl route will handle it)
+        return next();
+      }
+
+      // 2) Handle management domain logic
       const isApiEndpoint = req.method === 'POST' && (
         req.path === '/change-owner' || 
         req.path === '/delete' || 
-        req.path === '/shortUrls'
+        req.path === '/shortUrls' ||
+        req.path === '/spaces' ||
+        req.path.startsWith('/spaces/')
       );
 
-      const url = new URL(req.protocol + '://' + req.get('host') + req.originalUrl);
-      const queryOwner = url.searchParams.get('owner');
+      const url = new URL(req.protocol + '://' + host + req.originalUrl);
+      const queryOwner = url.searchParams.get('owner') || req.body.owner;
+      const querySpace = url.searchParams.get('space') || req.body.space;
       const cookies = parseCookies(req.headers.cookie || '');
       const cookieOwner = cookies.owner;
+      const cookieSpace = cookies.activeSpace;
 
       // Helper to set cookie
-      const setOwnerCookie = (ownerValue) => {
-        const maxAgeMs = 365 * 24 * 60 * 60 * 1000; // 1 year
+      const setCookie = (name, value) => {
+        const maxAgeMs = 365 * 24 * 60 * 60 * 1000;
         const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
         res.setHeader(
           'Set-Cookie',
-          `owner=${encodeURIComponent(ownerValue)}; HttpOnly; Path=/; Max-Age=${Math.floor(maxAgeMs / 1000)}${secureFlag}`
+          `${name}=${encodeURIComponent(value)}; HttpOnly; Path=/; Max-Age=${Math.floor(maxAgeMs / 1000)}${secureFlag}`
         );
       };
 
-      // 1) Query param present -> validate and use it, sync cookie
-      if (queryOwner) {
-        if (!isValidOwnerToken(queryOwner)) {
-          // Invalid token format - generate new one
-          if (isApiEndpoint) {
-            // For API endpoints, just use cookie or generate new, don't redirect
-            if (cookieOwner && isValidOwnerToken(cookieOwner)) {
-              req.owner = cookieOwner;
-              return next();
-            }
-            const newOwner = nanoid(16);
-            req.owner = newOwner;
-            setOwnerCookie(newOwner);
-            return next();
-          }
-          const newOwner = nanoid(16);
-          req.owner = newOwner;
-          setOwnerCookie(newOwner);
-          url.searchParams.set('owner', newOwner);
+      // --- Owner Logic ---
+      let currentOwner = queryOwner || cookieOwner;
+      if (!isValidOwnerToken(currentOwner)) {
+        currentOwner = nanoid(16);
+        setCookie('owner', currentOwner);
+        if (!isApiEndpoint) {
+          url.searchParams.set('owner', currentOwner);
           return res.redirect(url.pathname + '?' + url.searchParams.toString());
         }
-        req.owner = queryOwner;
-        if (cookieOwner !== queryOwner) {
-          setOwnerCookie(queryOwner);
-        }
-        return next();
+      }
+      req.owner = currentOwner;
+      if (cookieOwner !== currentOwner) {
+        setCookie('owner', currentOwner);
       }
 
-      // 2) Cookie present but no query -> ensure URL is bookmarkable with ?owner=
-      if (cookieOwner && isValidOwnerToken(cookieOwner)) {
-        req.owner = cookieOwner;
-        // For API endpoints, don't redirect, just use the cookie
-        if (isApiEndpoint) {
-          return next();
+      // --- Space Logic (only if Mongo is connected) ---
+      if (mongoose.connection.readyState === 1) {
+        let activeSpace;
+        
+        // Try query param first, then cookie
+        const spaceIdToTry = querySpace || cookieSpace;
+        
+        if (spaceIdToTry && mongoose.Types.ObjectId.isValid(spaceIdToTry)) {
+          activeSpace = await Space.findOne({ _id: spaceIdToTry, owner: currentOwner });
         }
-        // Avoid redirect loops: only redirect when owner is missing from query
-        url.searchParams.set('owner', cookieOwner);
-        const target = url.pathname + '?' + url.searchParams.toString();
-        if (target !== req.originalUrl) {
-          return res.redirect(target);
+
+        // If still no active space, find the first one or create Default
+        if (!activeSpace) {
+          activeSpace = await Space.findOne({ owner: currentOwner }).sort({ createdAt: 1 });
+          if (!activeSpace) {
+            activeSpace = await Space.create({
+              name: 'Default',
+              domain: config.allowedDomains[0] || host,
+              owner: currentOwner
+            });
+          }
         }
-        return next();
+
+        req.activeSpace = activeSpace;
+        
+        // Sync cookie and URL if needed
+        if (cookieSpace !== activeSpace._id.toString()) {
+          setCookie('activeSpace', activeSpace._id.toString());
+        }
+
+        if (!isApiEndpoint && querySpace !== activeSpace._id.toString()) {
+          url.searchParams.set('space', activeSpace._id.toString());
+          if (url.searchParams.get('owner') !== currentOwner) {
+            url.searchParams.set('owner', currentOwner);
+          }
+          const target = url.pathname + '?' + url.searchParams.toString();
+          if (target !== req.originalUrl) {
+            return res.redirect(target);
+          }
+        }
       }
 
-      // 3) Neither present or invalid -> create new owner
-      const newOwner = nanoid(16);
-      req.owner = newOwner;
-      setOwnerCookie(newOwner);
-      
-      // For API endpoints, don't redirect, just set owner and continue
-      if (isApiEndpoint) {
-        return next();
-      }
-      
-      // For regular GET requests, redirect to add ?owner= to URL
-      url.searchParams.set('owner', newOwner);
-      return res.redirect(url.pathname + '?' + url.searchParams.toString());
+      next();
     } catch (err) {
-      logger.error('Error in owner middleware:', err);
+      logger.error('Error in middleware:', err);
       return next(err);
     }
   });
@@ -238,14 +261,96 @@ function startServer(useMongo = true) {
     logger.info("Handling request to /");
     try {
       const owner = req.owner;
+      const activeSpace = req.activeSpace;
+      
+      let spaces = [];
+      if (mongoose.connection.readyState === 1) {
+        spaces = await Space.find({ owner });
+      }
+
       const shortUrls = mongoose.connection.readyState === 1 
-        ? await ShortUrl.find({ owner })
+        ? await ShortUrl.find({ owner, spaceId: activeSpace?._id })
         : await global.fileStore.getAllUrlsByOwner(owner);
-      logger.info(`Found ${shortUrls.length} URLs`);
-      res.render("index", { shortUrls: shortUrls, owner });
+      
+      logger.info(`Found ${shortUrls.length} URLs for space ${activeSpace?.name}`);
+      res.render("index", { 
+        shortUrls, 
+        owner, 
+        spaces, 
+        activeSpace,
+        allowedDomains: config.allowedDomains 
+      });
     } catch (error) {
       logger.error("Error fetching URLs:", error);
-      res.render("index", { shortUrls: [], owner: req.owner });
+      res.render("index", { 
+        shortUrls: [], 
+        owner: req.owner, 
+        spaces: [], 
+        activeSpace: null,
+        allowedDomains: config.allowedDomains
+      });
+    }
+  });
+
+  // Space management routes
+  app.post("/spaces", async (req, res) => {
+    try {
+      const { name, domain } = req.body;
+      const owner = req.owner;
+      
+      if (!name || !domain) {
+        return res.status(400).send("Name and domain are required");
+      }
+
+      const space = await Space.create({ name, domain, owner });
+      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${space._id}`);
+    } catch (error) {
+      logger.error("Error creating space:", error);
+      res.status(500).send("Error creating space");
+    }
+  });
+
+  app.post("/spaces/:id/edit", async (req, res) => {
+    try {
+      const { name, domain } = req.body;
+      const owner = req.owner;
+      
+      const space = await Space.findOneAndUpdate(
+        { _id: req.params.id, owner },
+        { name, domain },
+        { new: true }
+      );
+
+      if (space) {
+        // Update all URLs in this space to use the new domain
+        await ShortUrl.updateMany(
+          { spaceId: space._id, owner },
+          { domain: space.domain }
+        );
+      }
+
+      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${req.params.id}`);
+    } catch (error) {
+      logger.error("Error editing space:", error);
+      res.status(500).send("Error editing space");
+    }
+  });
+
+  app.post("/spaces/:id/delete", async (req, res) => {
+    try {
+      const owner = req.owner;
+      const spaceId = req.params.id;
+
+      // 1) Delete all URLs in this space (Cascade)
+      await ShortUrl.deleteMany({ spaceId, owner });
+      
+      // 2) Delete the space itself
+      await Space.findOneAndDelete({ _id: spaceId, owner });
+
+      res.redirect(`/?owner=${encodeURIComponent(owner)}`);
+    } catch (error) {
+      logger.error("Error deleting space:", error);
+      res.status(500).send("Error deleting space");
     }
   });
 
@@ -254,9 +359,16 @@ function startServer(useMongo = true) {
     try {
       const full = req.body.fullUrl;
       const owner = req.owner;
+      const activeSpace = req.activeSpace;
+
+      if (!activeSpace) {
+        return res.status(400).send("No active space found. Please create a space first.");
+      }
+
       if (mongoose.connection.readyState === 1) {
         // MongoDB logic
-        let shortUrl = await ShortUrl.findOne({ full, owner });
+        // Check if this URL already exists IN THIS SPACE
+        let shortUrl = await ShortUrl.findOne({ full, owner, spaceId: activeSpace._id });
         if (shortUrl) {
           if (req.body.customSuffix && !shortUrl.alias.includes(req.body.customSuffix)) {
             shortUrl.alias.push(req.body.customSuffix);
@@ -266,9 +378,11 @@ function startServer(useMongo = true) {
         } else {
           shortUrl = new ShortUrl({ 
             full: req.body.fullUrl,
-            short: nanoid(8),  // Always generate a short ID
+            short: nanoid(8),
             alias: req.body.customSuffix ? [req.body.customSuffix] : [],
             owner,
+            spaceId: activeSpace._id,
+            domain: activeSpace.domain,
             clicks: 0,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -276,11 +390,11 @@ function startServer(useMongo = true) {
           await ShortUrl.create(shortUrl);
         }
       } else {
-        // FileStore logic
+        // FileStore logic (simplified, doesn't handle spaces yet)
         await global.fileStore.createShortUrl(full, req.body.customSuffix, owner);
       }
-      // Preserve owner in redirect so bookmark remains correct
-      res.redirect("/?owner=" + encodeURIComponent(owner));
+      // Preserve owner and space in redirect
+      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${activeSpace._id}`);
     } catch (error) {
       logger.error("Error creating short URL:", error);
       res.status(500).send("Error creating short URL");
@@ -381,9 +495,11 @@ function startServer(useMongo = true) {
   app.get("/:shortUrl", async (req, res) => {
     logger.info("Handling request to /:shortUrl");
     try {
+      const host = req.get('host');
       let shortUrl;
       if (mongoose.connection.readyState === 1) {
         shortUrl = await ShortUrl.findOne({
+          domain: host,
           "$or": [
             {alias: req.params.shortUrl},
             {short: req.params.shortUrl}
@@ -427,13 +543,17 @@ function startServer(useMongo = true) {
       }
 
       if (mongoose.connection.readyState === 1) {
-        const result = await ShortUrl.deleteMany({ short: { $in: toDelete }, owner });
+        const result = await ShortUrl.deleteMany({ 
+          short: { $in: toDelete }, 
+          owner,
+          spaceId: req.activeSpace?._id
+        });
         logger.info(`Deleted ${result.deletedCount} URL(s) from MongoDB`);
       } else {
         await global.fileStore.deleteUrlsForOwner(toDelete, owner);
       }
 
-      res.redirect("/?owner=" + encodeURIComponent(owner));
+      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${req.activeSpace?._id}`);
     } catch (error) {
       logger.error("Error deleting URLs:", error);
       res.status(500).send("Error deleting URLs");

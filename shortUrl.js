@@ -20,6 +20,17 @@ const shortUrlSchema = new mongoose.Schema({
         type: String,
         index: true
     },
+    domain: {
+        type: String,
+        required: true,
+        index: true
+    },
+    spaceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Space',
+        required: true,
+        index: true
+    },
     clicks: {
         type: Number, 
         required: true, 
@@ -30,7 +41,8 @@ const shortUrlSchema = new mongoose.Schema({
     timestamps: true
 }
 )
-// shortUrlSchema.index({full: 1}, {unique: true});
-shortUrlSchema.index({alias: 1}, {name: "aliases", unique: true, partialFilterExpression: {"alias.$size": {$gte: 0}}});
+// Unique short codes and aliases per domain
+shortUrlSchema.index({ domain: 1, short: 1 }, { unique: true });
+shortUrlSchema.index({ domain: 1, alias: 1 }, { name: "domain_aliases", unique: true, partialFilterExpression: { "alias.0": { $exists: true } } });
 
 module.exports = mongoose.model('ShortUrl', shortUrlSchema)

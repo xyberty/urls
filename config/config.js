@@ -11,7 +11,9 @@ const development = {
   rateLimit: {
     windowMs: 15 * 60 * 1000,
     max: 100
-  }
+  },
+  allowedDomains: (process.env.ALLOWED_DOMAINS || 'localhost:3005').split(','),
+  managementDomain: process.env.MANAGEMENT_DOMAIN || 'localhost:3005'
 };
 
 const production = {
@@ -26,7 +28,9 @@ const production = {
   rateLimit: {
     windowMs: 15 * 60 * 1000,
     max: 50
-  }
+  },
+  allowedDomains: (process.env.ALLOWED_DOMAINS || '').split(','),
+  managementDomain: process.env.MANAGEMENT_DOMAIN || ''
 };
 
 const config = {

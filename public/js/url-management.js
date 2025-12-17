@@ -85,6 +85,14 @@
             form.method = 'POST';
             form.action = '/delete';
             
+            if (window.currentActiveSpaceId) {
+              var spaceInput = document.createElement('input');
+              spaceInput.type = 'hidden';
+              spaceInput.name = 'space';
+              spaceInput.value = window.currentActiveSpaceId;
+              form.appendChild(spaceInput);
+            }
+            
             selected.forEach(function(value) {
               var input = document.createElement('input');
               input.type = 'hidden';
