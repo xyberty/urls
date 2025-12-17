@@ -16,6 +16,10 @@ const shortUrlSchema = new mongoose.Schema({
     alias: [{  // Array of custom aliases
         type: String
     }],
+    owner: {
+        type: String,
+        index: true
+    },
     clicks: {
         type: Number, 
         required: true, 

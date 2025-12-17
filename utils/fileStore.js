@@ -27,13 +27,20 @@ class FileStore {
     return JSON.parse(data);
   }
 
-  async createShortUrl(fullUrl, customSuffix) {
+  async getAllUrlsByOwner(owner) {
+    const urls = await this.getAllUrls();
+    // Owner was added later; treat entries without owner as not owned
+    return urls.filter(url => url.owner === owner);
+  }
+
+  async createShortUrl(fullUrl, customSuffix, owner) {
     const urls = await this.getAllUrls();
     const shortUrl = {
       full: fullUrl,
       short: nanoid(8),  // Always generate a short ID
       alias: customSuffix ? [customSuffix] : [],  // Store custom alias if provided
       clicks: 0,
+      owner,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -88,6 +95,46 @@ class FileStore {
       logger.info(`Deleted ${urls.length - filtered.length} URL(s) from FileStore`);
     } catch (error) {
       logger.error('Error deleting URLs from FileStore:', error);
+      throw error;
+    }
+  }
+
+  async deleteUrlsForOwner(shortCodes, owner) {
+    if (!Array.isArray(shortCodes) || shortCodes.length === 0) {
+      return;
+    }
+
+    try {
+      const urls = await this.getAllUrls();
+      const shortSet = new Set(shortCodes);
+      const filtered = urls.filter(url => {
+        if (url.owner !== owner) return true;
+        return !shortSet.has(url.short);
+      });
+      await fs.writeFile(this.filePath, JSON.stringify(filtered, null, 2));
+      logger.info(`Deleted ${urls.length - filtered.length} URL(s) for owner ${owner} from FileStore`);
+    } catch (error) {
+      logger.error('Error deleting owner URLs from FileStore:', error);
+      throw error;
+    }
+  }
+
+  async reassignOwner(oldOwner, newOwner) {
+    try {
+      const urls = await this.getAllUrls();
+      let reassignedCount = 0;
+      const updatedUrls = urls.map(url => {
+        if (url.owner === oldOwner) {
+          reassignedCount++;
+          return { ...url, owner: newOwner };
+        }
+        return url;
+      });
+      await fs.writeFile(this.filePath, JSON.stringify(updatedUrls, null, 2));
+      logger.info(`Reassigned ${reassignedCount} URL(s) from owner ${oldOwner} to ${newOwner} in FileStore`);
+      return reassignedCount;
+    } catch (error) {
+      logger.error('Error reassigning owner in FileStore:', error);
       throw error;
     }
   }

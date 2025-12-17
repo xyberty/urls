@@ -1,179 +1,353 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-
-    <link
-      rel="stylesheet"
-      href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
-      integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
-      crossorigin="anonymous"
-    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>URL Shortener</title>
-    <style>
-      .delete-btn {
-        opacity: 0;
-        transition: opacity 0.15s ease-in-out;
-      }
-
-      tr:hover .delete-btn {
-        opacity: 1;
-      }
-
-      .actions-column {
-        width: 90px;
-      }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              border: "hsl(214.3 31.8% 91.4%)",
+              input: "hsl(214.3 31.8% 91.4%)",
+              ring: "hsl(221.2 83.2% 53.3%)",
+              background: "hsl(0 0% 100%)",
+              foreground: "hsl(222.2 84% 4.9%)",
+              primary: {
+                DEFAULT: "hsl(221.2 83.2% 53.3%)",
+                foreground: "hsl(210 40% 98%)",
+              },
+              secondary: {
+                DEFAULT: "hsl(210 40% 96.1%)",
+                foreground: "hsl(222.2 47.4% 11.2%)",
+              },
+              destructive: {
+                DEFAULT: "hsl(0 84.2% 60.2%)",
+                foreground: "hsl(210 40% 98%)",
+              },
+              muted: {
+                DEFAULT: "hsl(210 40% 96.1%)",
+                foreground: "hsl(215.4 16.3% 46.9%)",
+              },
+              accent: {
+                DEFAULT: "hsl(210 40% 96.1%)",
+                foreground: "hsl(222.2 47.4% 11.2%)",
+              },
+              popover: {
+                DEFAULT: "hsl(0 0% 100%)",
+                foreground: "hsl(222.2 84% 4.9%)",
+              },
+              card: {
+                DEFAULT: "hsl(0 0% 100%)",
+                foreground: "hsl(222.2 84% 4.9%)",
+              },
+            },
+            borderRadius: {
+              lg: "0.5rem",
+              md: "calc(0.5rem - 2px)",
+              sm: "calc(0.5rem - 4px)",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body>
-    <div class="container">
-      <h1>URL Shortener</h1>
-      <form action="/shortUrls" method="POST" class="my-4 form-inline">
-        <label for="fullUrl" class="sr-only">URL</label>
-        <input
-          required
-          class="form-control mr-2 col"
-          type="url"
-          placeholder="Enter URL"
-          name="fullUrl"
-          id="fullUrl"
-        />
-        <label for="customSuffix" class="sr-only">Custom short URL</label>
-        <input name="customSuffix" id="customSuffix" class="form-control mr-2" placeholder="Short (optional)" />
-        <button type="submit" class="btn btn-success">Shorten</button>
-      </form>
-      
-      <% if (shortUrls.length === 0) { %>
-        <p>No URLs have been shortened yet.</p>
-      <% } else { %>
-        <div class="table-responsive">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th scope="col">
-                  <input type="checkbox" id="selectAll" />
-                </th>
-                <th>URL</th>
-                <th>Short link</th>
-                <th>Alias</th>
-                <th>Clicks</th>
-                <th>Created At</th>
-                <th class="actions-column text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% shortUrls.forEach(shortUrl => { %>
-                <tr>
-                  <td>
-                    <input
-                      type="checkbox"
-                      class="url-select"
-                      name="selected"
-                      value="<%= shortUrl.short %>"
-                    />
-                  </td>
-                  <td><%= shortUrl.full %></td>
-                  <td><a href="/<%= shortUrl.short %>"><%= shortUrl.short %></a></td>
-                  <td>
-                    <% if (shortUrl.alias && shortUrl.alias.length) { %>
-                      <a href="/<%= shortUrl.alias[0] %>"><%= shortUrl.alias.join(", ") %></a>
-                    <% } else { %>
-                      <span class="text-muted">—</span>
-                    <% } %>
-                  </td>
-                  <td><%= shortUrl.clicks %></td>
-                  <td><%= new Date(shortUrl.createdAt).toLocaleString() %></td>
-                  <td class="text-right">
-                    <form
-                      action="/delete"
-                      method="POST"
-                      class="d-inline"
-                      onsubmit="return confirm('Delete this URL?');"
-                    >
-                      <input type="hidden" name="short" value="<%= shortUrl.short %>" />
-                      <button
-                        type="submit"
-                        class="btn btn-outline-danger btn-sm delete-btn"
-                        title="Delete this URL"
-                      >
-                        Delete
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-        <div class="mt-2" id="bulkDeleteContainer" style="display: none;">
-          <button
-            type="button"
-            id="deleteSelected"
-            class="btn btn-danger btn-sm"
-          >
-            Delete selected
-          </button>
+  <body class="min-h-full bg-background antialiased">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+      <div class="mb-8">
+        <h1 class="text-4xl font-bold tracking-tight mb-2">URL Shortener</h1>
+        <p class="text-muted-foreground">Create and manage your shortened URLs</p>
+      </div>
+
+      <% if (owner) { %>
+        <div class="rounded-lg border bg-card text-card-foreground shadow-sm mb-6 p-4">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-sm font-medium">Owner token:</span>
+                <span id="ownerTokenContainer" class="flex items-center gap-2">
+                  <code id="ownerToken" contenteditable="true" class="px-2 py-1 bg-muted rounded-md text-sm font-mono cursor-text min-w-[200px] inline-block focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" onblur="handleOwnerTokenChange(this)" onkeydown="handleOwnerTokenKeydown(event, this)"><%= owner %></code>
+                  <span class="text-xs text-muted-foreground">(click to edit)</span>
+                </span>
+              </div>
+              <p class="text-xs text-muted-foreground">Changing the token will reassign all your URLs to the new token.</p>
+            </div>
+            <div>
+              <button
+                type="button"
+                id="copyLinkBtn"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                onclick="copyDashboardLink()"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"></path></svg>
+                Copy dashboard link
+              </button>
+            </div>
+          </div>
         </div>
       <% } %>
+
+      <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6 mb-6">
+        <form action="/shortUrls" method="POST" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div class="md:col-span-8">
+              <label for="fullUrl" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-2 block">
+                URL
+              </label>
+              <input
+                required
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                type="url"
+                placeholder="https://example.com"
+                name="fullUrl"
+                id="fullUrl"
+              />
+            </div>
+            <div class="md:col-span-3">
+              <label for="customSuffix" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-2 block">
+                Custom alias (optional)
+              </label>
+              <input
+                name="customSuffix"
+                id="customSuffix"
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="my-alias"
+              />
+            </div>
+            <div class="md:col-span-1 flex items-end">
+              <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
+              >
+                Shorten
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+      
+      <% if (shortUrls.length === 0) { %>
+        <div class="rounded-lg border border-dashed bg-muted/50 p-12 text-center">
+          <p class="text-muted-foreground">No URLs have been shortened yet.</p>
+        </div>
+      <% } else { %>
+        <div class="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full caption-bottom text-sm">
+              <thead class="[&_tr]:border-b">
+                <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-12">
+                    <input
+                      type="checkbox"
+                      id="selectAll"
+                      class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    />
+                  </th>
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">URL</th>
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Short link</th>
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Alias</th>
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Clicks</th>
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Created At</th>
+                  <th class="h-12 px-4 text-right align-middle font-medium text-muted-foreground w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="[&_tr:last-child]:border-0">
+                <% shortUrls.forEach(shortUrl => { %>
+                  <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                    <td class="p-4 align-middle">
+                      <input
+                        type="checkbox"
+                        class="url-select h-4 w-4 rounded border-gray-300 text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        name="selected"
+                        value="<%= shortUrl.short %>"
+                      />
+                    </td>
+                    <td class="p-4 align-middle">
+                      <div class="max-w-md truncate" title="<%= shortUrl.full %>">
+                        <%= shortUrl.full %>
+                      </div>
+                    </td>
+                    <td class="p-4 align-middle">
+                      <a
+                        href="/<%= shortUrl.short %>"
+                        class="text-primary hover:underline font-mono"
+                        target="_blank"
+                      >
+                        <%= shortUrl.short %>
+                      </a>
+                    </td>
+                    <td class="p-4 align-middle">
+                      <% if (shortUrl.alias && shortUrl.alias.length) { %>
+                        <a
+                          href="/<%= shortUrl.alias[0] %>"
+                          class="text-primary hover:underline font-mono"
+                          target="_blank"
+                        >
+                          <%= shortUrl.alias.join(", ") %>
+                        </a>
+                      <% } else { %>
+                        <span class="text-muted-foreground">—</span>
+                      <% } %>
+                    </td>
+                    <td class="p-4 align-middle">
+                      <span class="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">
+                        <%= shortUrl.clicks %>
+                      </span>
+                    </td>
+                    <td class="p-4 align-middle text-muted-foreground">
+                      <%= new Date(shortUrl.createdAt).toLocaleString() %>
+                    </td>
+                    <td class="p-4 align-middle text-right">
+                      <form
+                        action="/delete"
+                        method="POST"
+                        class="inline delete-form"
+                        data-short="<%= shortUrl.short %>"
+                      >
+                        <input type="hidden" name="short" value="<%= shortUrl.short %>" />
+                        <button
+                          type="button"
+                          class="delete-btn inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-8 px-3"
+                          title="Delete this URL"
+                          onclick="handleDeleteClick(this)"
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center justify-between">
+          <div id="bulkDeleteContainer" style="display: none;">
+            <button
+              type="button"
+              id="deleteSelected"
+              class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4"
+            >
+              Delete selected
+            </button>
+          </div>
+          <button
+            type="button"
+            id="exportBtn"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4"
+            onclick="exportUrls()"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+            Export my URLs (JSON)
+          </button>
+        </div>
+        <% } %>
     </div>
+
+    <!-- Dialog Component -->
+    <div id="dialog-overlay" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center" onclick="closeDialog()">
+      <div id="dialog-content" class="relative bg-card text-card-foreground rounded-lg border shadow-lg max-w-lg w-full mx-4 p-6" onclick="event.stopPropagation()">
+        <div id="dialog-header" class="flex flex-col space-y-1.5 text-center sm:text-left mb-4">
+          <h2 id="dialog-title" class="text-lg font-semibold leading-none tracking-tight"></h2>
+          <p id="dialog-description" class="text-sm text-muted-foreground whitespace-pre-wrap"></p>
+        </div>
+        <div id="dialog-body" class="mb-4"></div>
+        <div id="dialog-footer" class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 space-y-2 space-y-reverse sm:space-y-0">
+          <button
+            id="dialog-cancel"
+            type="button"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+          >
+            Cancel
+          </button>
+          <button
+            id="dialog-confirm"
+            type="button"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Dialog Component -->
+    <div id="export-dialog-overlay" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center" onclick="closeExportDialog()">
+      <div id="export-dialog-content" class="relative bg-card text-card-foreground rounded-lg border shadow-lg max-w-2xl w-full mx-4 p-6 max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-semibold leading-none tracking-tight">Export URLs</h2>
+            <p id="export-stats" class="text-sm text-muted-foreground mt-1"></p>
+          </div>
+          <button
+            type="button"
+            onclick="closeExportDialog()"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 rounded-md"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <span class="sr-only">Close</span>
+          </button>
+        </div>
+        <div id="export-body" class="flex-1 overflow-hidden flex flex-col">
+          <div id="export-loading" class="flex items-center justify-center py-12">
+            <div class="text-center">
+              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+              <p class="text-sm text-muted-foreground">Loading export data...</p>
+            </div>
+          </div>
+          <div id="export-content" class="hidden flex-1 flex flex-col">
+            <div class="mb-4 flex-1 min-h-0">
+              <label class="text-sm font-medium mb-2 block">JSON Preview</label>
+              <textarea
+                id="export-json"
+                readonly
+                class="flex min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-auto"
+              ></textarea>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 sm:justify-end">
+              <button
+                type="button"
+                id="export-copy-btn"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+                onclick="copyExportToClipboard()"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"></path></svg>
+                Copy to clipboard
+              </button>
+              <button
+                type="button"
+                id="export-download-btn"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                onclick="downloadExport()"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+                Download JSON
+              </button>
+            </div>
+          </div>
+          <div id="export-error" class="hidden">
+            <div class="rounded-md bg-destructive/10 border border-destructive/20 p-4">
+              <p class="text-sm text-destructive font-medium mb-1">Export failed</p>
+              <p id="export-error-message" class="text-sm text-destructive/80"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Initialize owner token for JavaScript modules -->
     <script>
-      (function () {
-        var selectAll = document.getElementById('selectAll');
-        var deleteSelectedBtn = document.getElementById('deleteSelected');
-        var bulkContainer = document.getElementById('bulkDeleteContainer');
-
-        function updateBulkVisibility() {
-          var anyChecked = !!document.querySelector('.url-select:checked');
-          if (bulkContainer) {
-            bulkContainer.style.display = anyChecked ? 'block' : 'none';
-          }
-        }
-
-        if (selectAll) {
-          selectAll.addEventListener('change', function () {
-            var checkboxes = document.querySelectorAll('.url-select');
-            checkboxes.forEach(function (cb) {
-              cb.checked = selectAll.checked;
-            });
-            updateBulkVisibility();
-          });
-        }
-
-        var rowCheckboxes = document.querySelectorAll('.url-select');
-        if (rowCheckboxes.length) {
-          rowCheckboxes.forEach(function (cb) {
-            cb.addEventListener('change', function () {
-              // If any gets unchecked, also uncheck "select all"
-              if (!cb.checked && selectAll) {
-                selectAll.checked = false;
-              }
-              updateBulkVisibility();
-            });
-          });
-        }
-
-        if (deleteSelectedBtn) {
-          deleteSelectedBtn.addEventListener('click', function () {
-            var selected = Array.prototype.slice
-              .call(document.querySelectorAll('.url-select:checked'))
-              .map(function (cb) {
-                return cb.value;
-              });
-
-            if (selected.length === 0) {
-              alert('No URLs selected for deletion.');
-              return;
-            }
-
-            if (!confirm(selected.length + ' URLs selected. Delete them all?')) {
-              return;
-            }
-            
-          });
-        }
-      })();
+      window.currentOwnerToken = '<%= owner || "" %>';
     </script>
+    
+    <!-- Load JavaScript modules in order -->
+    <script src="/js/dialog.js"></script>
+    <script src="/js/url-management.js"></script>
+    <script src="/js/export.js"></script>
+    <script src="/js/owner-token.js"></script>
   </body>
 </html>
