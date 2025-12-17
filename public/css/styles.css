@@ -7,13 +7,29 @@ body {
   color: hsl(222.2 84% 4.9%);
 }
 
-.delete-btn {
+.action-btn {
   opacity: 0;
   transition: opacity 0.15s ease-in-out;
 }
 
-tr:hover .delete-btn {
+tr:hover .action-btn {
   opacity: 1;
+}
+
+.action-btn.is-copied {
+  opacity: 1 !important;
+}
+
+.sortable .sort-icon {
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.sortable.active .sort-icon {
+  opacity: 1 !important;
+}
+
+.sortable.asc .sort-icon {
+  transform: rotate(180deg);
 }
 
 #dialog-overlay {
