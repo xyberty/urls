@@ -49,6 +49,7 @@ process.on('warning', (warning) => {
 
 // Set up view engine and middleware first
 app.set("view engine", "ejs");
+app.use(express.static("public")); // Serve static files from public directory
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 //app.use('/', healthRoutes);
