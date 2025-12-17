@@ -74,6 +74,23 @@ class FileStore {
     }
     return url;
   }
+
+  async deleteUrls(shortCodes) {
+    if (!Array.isArray(shortCodes) || shortCodes.length === 0) {
+      return;
+    }
+
+    try {
+      const urls = await this.getAllUrls();
+      const shortSet = new Set(shortCodes);
+      const filtered = urls.filter(url => !shortSet.has(url.short));
+      await fs.writeFile(this.filePath, JSON.stringify(filtered, null, 2));
+      logger.info(`Deleted ${urls.length - filtered.length} URL(s) from FileStore`);
+    } catch (error) {
+      logger.error('Error deleting URLs from FileStore:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = FileStore;

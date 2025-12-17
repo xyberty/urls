@@ -181,6 +181,37 @@ function startServer() {
     }
   });
 
+  app.post("/delete", auth, async (req, res) => {
+    logger.info("Handling delete request");
+    try {
+      let { selected, short } = req.body;
+
+      let toDelete = [];
+      if (selected) {
+        toDelete = Array.isArray(selected) ? selected : [selected];
+      } else if (short) {
+        toDelete = Array.isArray(short) ? short : [short];
+      }
+
+      if (toDelete.length === 0) {
+        logger.info("No URLs selected for deletion");
+        return res.redirect("/");
+      }
+
+      if (mongoose.connection.readyState === 1) {
+        const result = await ShortUrl.deleteMany({ short: { $in: toDelete } });
+        logger.info(`Deleted ${result.deletedCount} URL(s) from MongoDB`);
+      } else {
+        await global.fileStore.deleteUrls(toDelete);
+      }
+
+      res.redirect("/");
+    } catch (error) {
+      logger.error("Error deleting URLs:", error);
+      res.status(500).send("Error deleting URLs");
+    }
+  });
+
   // Error handling middleware
   app.use((err, req, res, next) => {
     logger.error(err.stack);
