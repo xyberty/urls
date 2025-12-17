@@ -30,6 +30,32 @@
   <body>
     <div class="container">
       <h1>URL Shortener</h1>
+
+      <% if (owner) { %>
+        <div class="alert alert-info mt-3" style="display: flex; justify-content: space-between;">
+          <div>
+            <strong>Owner token:</strong>
+            <span id="ownerTokenContainer">
+              <code id="ownerToken" contenteditable="true" style="background: rgba(255,255,255,0.3); padding: 2px 6px; border-radius: 3px; cursor: text; min-width: 200px; display: inline-block;" onblur="handleOwnerTokenChange(this)" onkeydown="handleOwnerTokenKeydown(event, this)"><%= owner %></code>
+              <small class="text-muted ml-2">(click to edit)</small>
+            </span>
+            <br />
+            <small class="text-muted">Changing the token will reassign all your URLs to the new token.</small>
+          </div>
+          <div>
+            <button
+            type="button"
+            id="copyLinkBtn"
+            class="btn btn-sm btn-outline-primary mt-2"
+            onclick="copyDashboardLink()"
+          >
+              📋 Copy dashboard link
+            </button>
+          </div>
+          
+        </div>
+      <% } %>
+
       <form action="/shortUrls" method="POST" class="my-4 form-inline">
         <label for="fullUrl" class="sr-only">URL</label>
         <input
@@ -116,7 +142,17 @@
             Delete selected
           </button>
         </div>
-      <% } %>
+        <div class="mt-3 mb-1">
+          <button
+            type="button"
+            id="exportBtn"
+            class="btn btn-outline-secondary btn-sm"
+            onclick="exportUrls()"
+          >
+            Export my URLs (JSON)
+          </button>
+        </div>
+        <% } %>
     </div>
     <script>
       (function () {
@@ -174,6 +210,206 @@
           });
         }
       })();
+
+      function copyDashboardLink() {
+        var fullUrl = window.location.href;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(fullUrl).then(function() {
+            var btn = document.getElementById('copyLinkBtn');
+            var originalText = btn.innerHTML;
+            btn.innerHTML = '✓ Copied!';
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-success');
+            setTimeout(function() {
+              btn.innerHTML = originalText;
+              btn.classList.remove('btn-success');
+              btn.classList.add('btn-outline-primary');
+            }, 2000);
+          }).catch(function(err) {
+            console.error('Failed to copy:', err);
+            fallbackCopy(fullUrl);
+          });
+        } else {
+          fallbackCopy(fullUrl);
+        }
+      }
+
+      function fallbackCopy(text) {
+        var textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          var btn = document.getElementById('copyLinkBtn');
+          var originalText = btn.innerHTML;
+          btn.innerHTML = '✓ Copied!';
+          btn.classList.remove('btn-outline-primary');
+          btn.classList.add('btn-success');
+          setTimeout(function() {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+          }, 2000);
+        } catch (err) {
+          alert('Failed to copy. Please copy the URL manually: ' + text);
+        }
+        document.body.removeChild(textArea);
+      }
+
+      var currentOwnerToken = '<%= owner || "" %>';
+
+      function handleOwnerTokenKeydown(event, element) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          element.blur();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          element.textContent = currentOwnerToken;
+          element.blur();
+        }
+      }
+
+      function handleOwnerTokenChange(element) {
+        // Get text content - contenteditable can include HTML, so we need to extract just text
+        var newToken = '';
+        if (element.textContent !== undefined) {
+          newToken = element.textContent.trim();
+        } else if (element.innerText !== undefined) {
+          newToken = element.innerText.trim();
+        } else {
+          newToken = element.textContent.trim();
+        }
+        
+        // Remove any non-printable characters
+        newToken = newToken.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+        
+        var oldToken = currentOwnerToken;
+        
+        console.log('Changing owner token:', { 
+          oldToken: oldToken, 
+          newToken: newToken, 
+          length: newToken.length,
+          charCodes: newToken.split('').map(function(c) { return c.charCodeAt(0); })
+        });
+        
+        // Validate token format: URL-safe characters, 1-128 chars
+        if (!newToken || newToken.length < 1 || newToken.length > 128) {
+          alert('Invalid owner token format. Token must be 1-128 characters long. Current length: ' + newToken.length);
+          element.textContent = oldToken;
+          return;
+        }
+        
+        // Allow URL-safe characters: alphanumeric, dash, underscore, dot, tilde, at sign
+        if (!/^[a-zA-Z0-9._~@-]+$/.test(newToken)) {
+          var invalidChars = newToken.split('').filter(function(c) {
+            return !/^[a-zA-Z0-9._~@-]$/.test(c);
+          });
+          alert('Invalid owner token format. Use only URL-safe characters (letters, numbers, dash, underscore, dot, tilde, at). Invalid characters found: ' + JSON.stringify(invalidChars));
+          element.textContent = oldToken;
+          return;
+        }
+
+        if (newToken === oldToken) {
+          return; // No change
+        }
+
+        // Show loading state
+        element.style.opacity = '0.5';
+        element.contentEditable = 'false';
+
+        // Call API to change owner
+        fetch('/change-owner', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ newOwner: newToken })
+        })
+        .then(function(response) {
+          if (!response.ok) {
+            return response.json().then(function(err) {
+              throw new Error(err.error || 'Failed to change owner token');
+            });
+          }
+          return response.json();
+        })
+        .then(function(data) {
+          if (data.success) {
+            // Update URL with new owner token
+            var url = new URL(window.location.href);
+            url.searchParams.set('owner', newToken);
+            window.location.href = url.toString();
+          } else {
+            throw new Error(data.error || 'Failed to change owner token');
+          }
+        })
+        .catch(function(error) {
+          console.error('Error changing owner:', error);
+          alert('Failed to change owner token: ' + (error.message || error));
+          element.textContent = oldToken;
+          element.style.opacity = '1';
+          element.contentEditable = 'true';
+        });
+      }
+
+      function exportUrls() {
+        var owner = currentOwnerToken;
+        var exportBtn = document.getElementById('exportBtn');
+        var originalText = exportBtn.innerHTML;
+        var originalClasses = exportBtn.className;
+        
+        // Show loading state
+        exportBtn.disabled = true;
+        exportBtn.innerHTML = 'Exporting...';
+        
+        // Fetch the export data
+        fetch('/export?owner=' + encodeURIComponent(owner))
+          .then(function(response) {
+            if (!response.ok) {
+              throw new Error('Export failed: ' + response.statusText);
+            }
+            return response.json();
+          })
+          .then(function(data) {
+            // Create a blob from the JSON data
+            var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            var url = window.URL.createObjectURL(blob);
+            
+            // Create a temporary anchor element and trigger download
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'urls-' + owner + '.json';
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            // Show success state
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = '✓ Downloaded!';
+            exportBtn.classList.remove('btn-outline-secondary');
+            exportBtn.classList.add('btn-success');
+            
+            // Reset button after 2 seconds
+            setTimeout(function() {
+              exportBtn.innerHTML = originalText;
+              exportBtn.classList.remove('btn-success');
+              exportBtn.classList.add('btn-outline-secondary');
+            }, 2000);
+          })
+          .catch(function(error) {
+            console.error('Export error:', error);
+            alert('Failed to export URLs: ' + error.message);
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = originalText;
+            exportBtn.className = originalClasses;
+          });
+      }
     </script>
   </body>
 </html>
