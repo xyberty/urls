@@ -1,0 +1,39 @@
+services:
+  app:
+    build: .
+    container_name: urls-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_URL=mongodb://mongo:27017/urlshortener
+      - DB_NAME=urlshortener
+      - SESSION_SECRET=${SESSION_SECRET:-change-this-secret-in-production}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - mongo
+    restart: unless-stopped
+    networks:
+      - urls-network
+
+  mongo:
+    image: mongo:7
+    container_name: urls-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+    networks:
+      - urls-network
+
+volumes:
+  mongo-data:
+
+networks:
+  urls-network:
+    driver: bridge
+

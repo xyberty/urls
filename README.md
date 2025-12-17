@@ -37,6 +37,68 @@ LOG_LEVEL=info
 npm start
 ```
 
+## Docker Setup
+
+### Prerequisites
+- Docker
+- Docker Compose
+
+### Running with Docker Compose
+
+The easiest way to run the application with Docker is using Docker Compose, which will set up both the application and MongoDB:
+
+1. Build and start the containers:
+```bash
+docker-compose up -d
+```
+
+2. View logs:
+```bash
+docker-compose logs -f app
+```
+
+3. Stop the containers:
+```bash
+docker-compose down
+```
+
+4. Stop and remove volumes (this will delete MongoDB data):
+```bash
+docker-compose down -v
+```
+
+The application will be available at `http://localhost:3000`.
+
+### Environment Variables for Docker
+
+You can customize the Docker setup by setting environment variables:
+
+- `SESSION_SECRET`: Secret key for session management (default: `change-this-secret-in-production`)
+- `PORT`: Application port (default: `3000`)
+- `DB_URL`: MongoDB connection string (default: `mongodb://mongo:27017/urlshortener`)
+- `DB_NAME`: Database name (default: `urlshortener`)
+
+You can set these in a `.env` file or directly in `docker-compose.yml`.
+
+### Building Docker Image Manually
+
+To build the Docker image without Docker Compose:
+
+```bash
+docker build -t urls-app .
+```
+
+To run the container:
+
+```bash
+docker run -p 3000:3000 \
+  -e DB_URL=mongodb://your-mongo-host:27017/urlshortener \
+  -e SESSION_SECRET=your-secret-key \
+  urls-app
+```
+
+**Note:** When running manually, ensure MongoDB is accessible from the container or use the file storage fallback.
+
 ## API Documentation
 
 ### Endpoints
