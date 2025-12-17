@@ -10,20 +10,13 @@
       element.blur();
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      element.textContent = window.currentOwnerToken;
+      element.value = window.currentOwnerToken;
       element.blur();
     }
   }
 
   function handleOwnerTokenChange(element) {
-    var newToken = '';
-    if (element.textContent !== undefined) {
-      newToken = element.textContent.trim();
-    } else if (element.innerText !== undefined) {
-      newToken = element.innerText.trim();
-    } else {
-      newToken = element.textContent.trim();
-    }
+    var newToken = element.value.trim();
     
     // Remove any non-printable characters
     newToken = newToken.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
@@ -33,7 +26,7 @@
     // Validate token format: URL-safe characters, 1-128 chars
     if (!newToken || newToken.length < 1 || newToken.length > 128) {
       alert('Invalid owner token format. Token must be 1-128 characters long. Current length: ' + newToken.length);
-      element.textContent = oldToken;
+      element.value = oldToken;
       return;
     }
     
@@ -43,7 +36,7 @@
         return !/^[a-zA-Z0-9._~@-]$/.test(c);
       });
       alert('Invalid owner token format. Use only URL-safe characters (letters, numbers, dash, underscore, dot, tilde, at). Invalid characters found: ' + JSON.stringify(invalidChars));
-      element.textContent = oldToken;
+      element.value = oldToken;
       return;
     }
 
@@ -53,7 +46,7 @@
 
     // Show loading state
     element.style.opacity = '0.5';
-    element.contentEditable = 'false';
+    element.disabled = true;
 
     // Call API to change owner
     fetch('/change-owner', {
@@ -84,9 +77,9 @@
     .catch(function(error) {
       console.error('Error changing owner:', error);
       alert('Failed to change owner token: ' + (error.message || error));
-      element.textContent = oldToken;
+      element.value = oldToken;
       element.style.opacity = '1';
-      element.contentEditable = 'true';
+      element.disabled = false;
     });
   }
 
@@ -137,9 +130,32 @@
     }
   }
 
+  function toggleOwnerDropdown() {
+    var dropdown = document.getElementById('ownerDropdown');
+    if (dropdown) {
+      dropdown.classList.toggle('hidden');
+    }
+  }
+
+  function closeOwnerDropdown(event) {
+    var dropdown = document.getElementById('ownerDropdown');
+    var avatarBtn = document.getElementById('avatarBtn');
+    
+    if (dropdown && avatarBtn && !dropdown.contains(event.target) && !avatarBtn.contains(event.target)) {
+      dropdown.classList.add('hidden');
+    }
+  }
+
+  // Close dropdown when clicking outside
+  // Use setTimeout to ensure DOM is ready
+  setTimeout(function() {
+    document.addEventListener('click', closeOwnerDropdown);
+  }, 0);
+
   // Expose to global scope
   window.handleOwnerTokenKeydown = handleOwnerTokenKeydown;
   window.handleOwnerTokenChange = handleOwnerTokenChange;
   window.copyDashboardLink = copyDashboardLink;
+  window.toggleOwnerDropdown = toggleOwnerDropdown;
 })();
 

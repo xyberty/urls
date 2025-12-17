@@ -58,38 +58,78 @@
   </head>
   <body class="min-h-full bg-background antialiased">
     <div class="container mx-auto px-4 py-8 max-w-6xl">
-      <div class="mb-8">
-        <h1 class="text-4xl font-bold tracking-tight mb-2">URL Shortener</h1>
-        <p class="text-muted-foreground">Create and manage your shortened URLs</p>
-      </div>
-
-      <% if (owner) { %>
-        <div class="rounded-lg border bg-card text-card-foreground shadow-sm mb-6 p-4">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div class="flex-1">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-sm font-medium">Owner token:</span>
-                <span id="ownerTokenContainer" class="flex items-center gap-2">
-                  <code id="ownerToken" contenteditable="true" class="px-2 py-1 bg-muted rounded-md text-sm font-mono cursor-text min-w-[200px] inline-block focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" onblur="handleOwnerTokenChange(this)" onkeydown="handleOwnerTokenKeydown(event, this)"><%= owner %></code>
-                  <span class="text-xs text-muted-foreground">(click to edit)</span>
-                </span>
+      <div class="mb-8 flex items-start justify-between">
+        <div>
+          <h1 class="text-4xl font-bold tracking-tight mb-2">URL Shortener</h1>
+          <p class="text-muted-foreground">Create and manage your shortened URLs</p>
+        </div>
+        <% if (owner) { %>
+          <div class="relative">
+            <button
+              type="button"
+              id="avatarBtn"
+              class="relative flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onclick="toggleOwnerDropdown()"
+              aria-label="Owner settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </button>
+            <div
+              id="ownerDropdown"
+              class="absolute right-0 mt-2 w-80 rounded-lg border bg-card text-card-foreground shadow-lg z-50 hidden"
+              onclick="event.stopPropagation()"
+            >
+              <div class="p-4 space-y-4">
+                <div>
+                  <label for="ownerToken" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-2 block">
+                    Owner token
+                  </label>
+                  <div class="relative">
+                    <input
+                      type="text"
+                      id="ownerToken"
+                      value="<%= owner %>"
+                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      onblur="handleOwnerTokenChange(this)"
+                      onkeydown="handleOwnerTokenKeydown(event, this)"
+                    />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                    >
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </div>
+                  <p class="text-xs text-muted-foreground mt-2">Changing the token will reassign all your URLs to the new token.</p>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    id="copyLinkBtn"
+                    class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 w-full"
+                    onclick="copyDashboardLink()"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"></path></svg>
+                    Copy dashboard link
+                  </button>
+                </div>
               </div>
-              <p class="text-xs text-muted-foreground">Changing the token will reassign all your URLs to the new token.</p>
-            </div>
-            <div>
-              <button
-                type="button"
-                id="copyLinkBtn"
-                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
-                onclick="copyDashboardLink()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"></path></svg>
-                Copy dashboard link
-              </button>
             </div>
           </div>
-        </div>
-      <% } %>
+        <% } %>
+      </div>
 
       <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6 mb-6">
         <form action="/shortUrls" method="POST" class="space-y-4">
