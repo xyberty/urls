@@ -1,5 +1,5 @@
-# Use Node.js LTS version
-FROM node:18-alpine
+# Use Node.js LTS version (v20+ required for connect-mongo v6)
+FROM node:20-alpine
 
 # Create app user
 RUN addgroup -g 1001 -S nodejs && \

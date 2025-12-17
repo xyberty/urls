@@ -24,12 +24,13 @@ const logger = winston.createLogger({
     ]
 });
 
-// Add console transport in non-production environments
-if (process.env.NODE_ENV !== 'production') {
-    logger.add(new winston.transports.Console({
-        format: winston.format.simple()
-    }));
-}
+// Add console transport for all environments so we can see logs in Docker/CapRover
+logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+    )
+}));
 
 // Test logger
 try {
