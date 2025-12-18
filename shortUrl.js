@@ -1,5 +1,8 @@
 const mongoose = require('mongoose')
-const { nanoid } = require('nanoid')
+const { customAlphabet } = require('nanoid')
+const { alphabet } = require('./utils/slugGenerator')
+
+const nanoid = customAlphabet(alphabet, 4)
 
 const shortUrlSchema = new mongoose.Schema({
     full: {
@@ -10,7 +13,7 @@ const shortUrlSchema = new mongoose.Schema({
     short: {
         type: String, 
         required: true,
-        default: () => nanoid(8),
+        default: () => nanoid(),
         index: true
     },
     alias: [{  // Array of custom aliases

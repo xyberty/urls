@@ -1,6 +1,5 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { nanoid } = require('nanoid');
 const logger = require('../utils/logger');
 
 class FileStore {
@@ -33,20 +32,16 @@ class FileStore {
     return urls.filter(url => url.owner === owner);
   }
 
-  async createShortUrl(fullUrl, customSuffix, owner) {
-    const urls = await this.getAllUrls();
-    const shortUrl = {
-      full: fullUrl,
-      short: nanoid(8),  // Always generate a short ID
-      alias: customSuffix ? [customSuffix] : [],  // Store custom alias if provided
-      clicks: 0,
-      owner,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    urls.push(shortUrl);
-    await fs.writeFile(this.filePath, JSON.stringify(urls, null, 2));
-    return shortUrl;
+  async saveUrl(shortUrl) {
+    try {
+      const urls = await this.getAllUrls();
+      urls.push(shortUrl);
+      await fs.writeFile(this.filePath, JSON.stringify(urls, null, 2));
+      return shortUrl;
+    } catch (error) {
+      logger.error('Error saving URL to FileStore:', error);
+      throw error;
+    }
   }
 
   async getUrl(shortCode) {
@@ -72,7 +67,7 @@ class FileStore {
   async incrementClicks(shortCode) {
     const urls = await this.getAllUrls();
     const url = urls.find(url => 
-      url.short === shortCode || url.alias.includes(shortCode)
+      url.short === shortCode || (url.alias && url.alias.includes(shortCode))
     );
     if (url) {
       url.clicks++;

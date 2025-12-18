@@ -12,6 +12,7 @@ const app = express();
 const config = require('./config/config');
 const healthRoutes = require('./routes/health');
 const { nanoid } = require('nanoid');
+const { createUniqueShortUrl } = require('./utils/slugGenerator');
 
 // Simple cookie parsing helper (avoids extra dependency)
 function parseCookies(cookieHeader) {
@@ -359,6 +360,7 @@ function startServer(useMongo = true) {
       const full = req.body.fullUrl;
       const owner = req.owner;
       const activeSpace = req.activeSpace;
+      const customSuffix = req.body.customSuffix;
 
       if (!activeSpace) {
         return res.status(400).send("No active space found. Please create a space first.");
@@ -369,16 +371,22 @@ function startServer(useMongo = true) {
         // Check if this URL already exists IN THIS SPACE
         let shortUrl = await ShortUrl.findOne({ full, owner, spaceId: activeSpace._id });
         if (shortUrl) {
-          if (req.body.customSuffix && !shortUrl.alias.includes(req.body.customSuffix)) {
-            shortUrl.alias.push(req.body.customSuffix);
+          if (customSuffix && !shortUrl.alias.includes(customSuffix)) {
+            shortUrl.alias.push(customSuffix);
             shortUrl.updatedAt = new Date();
             await shortUrl.save();
           }
         } else {
+          // Use the new unique slug generator
+          const existsFn = async (slug) => {
+            return await ShortUrl.exists({ domain: activeSpace.domain, short: slug });
+          };
+          const slug = await createUniqueShortUrl(existsFn);
+
           shortUrl = new ShortUrl({ 
-            full: req.body.fullUrl,
-            short: nanoid(8),
-            alias: req.body.customSuffix ? [req.body.customSuffix] : [],
+            full,
+            short: slug,
+            alias: customSuffix ? [customSuffix] : [],
             owner,
             spaceId: activeSpace._id,
             domain: activeSpace.domain,
@@ -389,8 +397,29 @@ function startServer(useMongo = true) {
           await ShortUrl.create(shortUrl);
         }
       } else {
-        // FileStore logic (simplified, doesn't handle spaces yet)
-        await global.fileStore.createShortUrl(full, req.body.customSuffix, owner);
+        // FileStore logic
+        const urls = await global.fileStore.getAllUrls();
+        let existingUrl = urls.find(u => u.full === full && u.owner === owner);
+
+        if (existingUrl) {
+          if (customSuffix && !existingUrl.alias.includes(customSuffix)) {
+            const updatedAliases = [...(existingUrl.alias || []), customSuffix];
+            await global.fileStore.updateUrl(existingUrl.short, owner, full, updatedAliases);
+          }
+        } else {
+          const existsFn = async (slug) => urls.some(u => u.short === slug);
+          const slug = await createUniqueShortUrl(existsFn);
+
+          await global.fileStore.saveUrl({ 
+            full,
+            short: slug,
+            alias: customSuffix ? [customSuffix] : [],
+            owner,
+            clicks: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
       }
       // Preserve owner and space in redirect
       res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${activeSpace._id}`);
