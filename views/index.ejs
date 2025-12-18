@@ -81,7 +81,7 @@
                   <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"></path>
                   <path d="M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4"></path>
                 </svg>
-                <%= activeSpace ? activeSpace.name : 'Select Space' %>
+                <%= activeSpace ? activeSpace.name + ' · ' + activeSpace.domain : 'Select Space' %>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-2 opacity-50">
                   <path d="m6 9 6 6 6-6"></path>
                 </svg>
@@ -97,7 +97,7 @@
                       href="/?space=<%= space._id %>"
                       class="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground <%= activeSpace && activeSpace._id.toString() === space._id.toString() ? 'bg-accent/50' : '' %>"
                     >
-                      <span class="truncate"><%= space.name %></span>
+                      <span class="truncate"><%= space.name %></span>&nbsp;·&nbsp; <span class="text-muted-foreground"><%= space.domain %></span>
                       <% if (activeSpace && activeSpace._id.toString() === space._id.toString()) { %>
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-auto">
                           <polyline points="20 6 9 17 4 12"></polyline>
@@ -320,10 +320,10 @@
                       <div class="flex items-center">
                         <a
                           href="//<%= shortUrl.domain %>/<%= shortUrl.short %>"
-                          class="text-primary hover:underline font-mono"
+                          class="text-primary hover:underline font-mono text-xs"
                           target="_blank"
                         >
-                          <%= shortUrl.domain %>/<%= shortUrl.short %>
+                        <%= shortUrl.domain %>/<%= shortUrl.short %>
                         </a>
                         <button
                           type="button"
@@ -345,7 +345,7 @@
                             <div class="flex items-center">
                               <a
                                 href="//<%= shortUrl.domain %>/<%= alias %>"
-                                class="text-primary hover:underline font-mono"
+                                class="text-primary hover:underline font-mono text-xs"
                                 target="_blank"
                               >
                                 <%= alias %>
