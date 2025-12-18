@@ -213,8 +213,8 @@
         </div>
       </div>
 
-      <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6 mb-6">
-        <form action="/shortUrls" method="POST" class="space-y-4">
+      <div class="rounded-lg border border-input bg-card text-card-foreground shadow-sm p-6 mb-6">
+        <form action="/shortUrls" method="POST">
           <input type="hidden" name="space" value="<%= activeSpace ? activeSpace._id : '' %>" />
           <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div class="md:col-span-8">
@@ -254,15 +254,15 @@
       </div>
       
       <% if (shortUrls.length === 0) { %>
-        <div class="rounded-lg border border-dashed bg-muted/50 p-12 text-center">
+        <div class="rounded-lg border border-input border-dashed bg-muted/50 p-12 text-center">
           <p class="text-muted-foreground">No URLs have been shortened yet.</p>
         </div>
       <% } else { %>
-        <div class="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+        <div class="rounded-lg border border-input bg-card text-card-foreground shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full caption-bottom text-sm">
               <thead class="[&_tr]:border-b">
-                <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                <tr class="border-b border-input transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                   <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-12">
                     <input
                       type="checkbox"
@@ -305,7 +305,7 @@
               </thead>
               <tbody class="[&_tr:last-child]:border-0">
                 <% shortUrls.forEach(shortUrl => { %>
-                  <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                  <tr class="border-b border-input transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                     <td class="p-4 align-middle">
                       <input
                         type="checkbox"

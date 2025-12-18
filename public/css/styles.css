@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light dark;
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
   --primary: 221.2 83.2% 53.3%;
@@ -19,6 +20,27 @@
   --popover-foreground: var(--foreground);
   --card: 0 0% 100%;
   --card-foreground: var(--foreground);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --card: 222.2 84% 4.9%;
+  }
 }
 
 * {
