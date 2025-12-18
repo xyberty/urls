@@ -293,6 +293,30 @@ function startServer(useMongo = true) {
   });
 
   // Space management routes
+  app.get("/api/generate-slug", async (req, res) => {
+    try {
+      const activeSpace = req.activeSpace;
+      if (!activeSpace) {
+        return res.status(400).json({ error: "No active space" });
+      }
+
+      const existsFn = async (slug) => {
+        if (mongoose.connection.readyState === 1) {
+          return await ShortUrl.exists({ domain: activeSpace.domain, short: slug });
+        } else {
+          const urls = await global.fileStore.getAllUrls();
+          return urls.some(u => u.short === slug);
+        }
+      };
+
+      const slug = await createUniqueShortUrl(existsFn);
+      res.json({ slug });
+    } catch (error) {
+      logger.error("Error generating slug:", error);
+      res.status(500).json({ error: "Failed to generate slug" });
+    }
+  });
+
   app.post("/spaces", async (req, res) => {
     try {
       const { name, domain } = req.body;
@@ -522,7 +546,7 @@ function startServer(useMongo = true) {
 
   app.post("/shortUrls/:short/edit", async (req, res) => {
     try {
-      const { fullUrl, aliases } = req.body;
+      const { fullUrl, aliases, newShort } = req.body;
       const short = req.params.short;
       const owner = req.owner;
       const activeSpace = req.activeSpace;
@@ -543,6 +567,21 @@ function startServer(useMongo = true) {
           updatedAt: new Date()
         };
 
+        // If a new short slug is provided and it's different, update it
+        if (newShort && newShort !== short) {
+          // Double check it's unique for this domain
+          const exists = await ShortUrl.exists({ 
+            domain: activeSpace.domain, 
+            short: newShort,
+            _id: { $ne: (await ShortUrl.findOne({ short, owner, spaceId: activeSpace?._id }))?._id }
+          });
+          
+          if (exists) {
+            return res.status(400).send("The new short slug is already taken.");
+          }
+          updateData.short = newShort;
+        }
+
         const shortUrl = await ShortUrl.findOneAndUpdate(
           { short, owner, spaceId: activeSpace?._id },
           updateData,
@@ -553,8 +592,14 @@ function startServer(useMongo = true) {
           return res.status(404).send("Short URL not found");
         }
       } else {
-        // Fallback for FileStore if needed (though not fully implemented in FileStore yet)
-        await global.fileStore.updateUrl(short, owner, fullUrl, aliasArray);
+        // Fallback for FileStore
+        if (newShort && newShort !== short) {
+          const urls = await global.fileStore.getAllUrls();
+          if (urls.some(u => u.short === newShort)) {
+            return res.status(400).send("The new short slug is already taken.");
+          }
+        }
+        await global.fileStore.updateUrl(short, owner, fullUrl, aliasArray, newShort);
       }
 
       res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${activeSpace?._id}`);

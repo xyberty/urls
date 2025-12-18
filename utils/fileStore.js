@@ -134,13 +134,16 @@ class FileStore {
     }
   }
 
-  async updateUrl(short, owner, fullUrl, aliasArray) {
+  async updateUrl(short, owner, fullUrl, aliasArray, newShort) {
     try {
       const urls = await this.getAllUrls();
       const url = urls.find(u => u.short === short && u.owner === owner);
       if (url) {
         url.full = fullUrl;
         url.alias = aliasArray;
+        if (newShort) {
+          url.short = newShort;
+        }
         url.updatedAt = new Date();
         await fs.writeFile(this.filePath, JSON.stringify(urls, null, 2));
       }

@@ -240,6 +240,16 @@
           '<input type="url" id="editFullUrl" name="fullUrl" value="' + full + '" required class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />' +
         '</div>' +
         '<div>' +
+          '<label for="editShort" class="text-sm font-medium block mb-2">Short Link</label>' +
+          '<div class="flex space-x-2">' +
+            '<input type="text" id="editShort" name="newShort" value="' + short + '" required readonly class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />' +
+            '<button type="button" id="regenerateSlug" class="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-3">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>' +
+              'Regenerate' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
           '<label for="editAliases" class="text-sm font-medium block mb-2">Aliases (comma-separated)</label>' +
           '<input type="text" id="editAliases" name="aliases" value="' + aliases + '" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" placeholder="alias1, alias2" />' +
           '<p class="text-xs text-muted-foreground mt-2">Multiple aliases can be separated by commas.</p>' +
@@ -248,13 +258,40 @@
 
     window.showDialog({
       title: 'Edit Short URL',
-      description: 'Update the destination URL or aliases for this short link.',
+      description: 'Update the destination URL, short link, or aliases for this link.',
       body: body,
       confirmText: 'Save Changes',
       onConfirm: function() {
         document.getElementById('editUrlForm').submit();
       }
     });
+
+    // Add event listener for regeneration after dialog is shown
+    setTimeout(function() {
+      var regenBtn = document.getElementById('regenerateSlug');
+      var shortInput = document.getElementById('editShort');
+      if (regenBtn && shortInput) {
+        regenBtn.addEventListener('click', function() {
+          regenBtn.disabled = true;
+          regenBtn.innerHTML = '<span class="animate-spin mr-2">...</span>Regenerating';
+          
+          fetch('/api/generate-slug')
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+              if (data.slug) {
+                shortInput.value = data.slug;
+              }
+            })
+            .catch(function(err) {
+              console.error('Error regenerating slug:', err);
+            })
+            .finally(function() {
+              regenBtn.disabled = false;
+              regenBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>Regenerate';
+            });
+        });
+      }
+    }, 50);
   }
 
   // Expose to global scope
