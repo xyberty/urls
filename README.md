@@ -1,6 +1,6 @@
-# URL Shortener Service
+# URLS
 
-A robust URL shortening service built with Node.js, Express, and MongoDB.
+A robust URL shortening service (URLS) built with Node.js, Express, and MongoDB.
 
 ## Setup Instructions
 
