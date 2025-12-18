@@ -138,6 +138,23 @@ class FileStore {
       throw error;
     }
   }
+
+  async updateUrl(short, owner, fullUrl, aliasArray) {
+    try {
+      const urls = await this.getAllUrls();
+      const url = urls.find(u => u.short === short && u.owner === owner);
+      if (url) {
+        url.full = fullUrl;
+        url.alias = aliasArray;
+        url.updatedAt = new Date();
+        await fs.writeFile(this.filePath, JSON.stringify(urls, null, 2));
+      }
+      return url;
+    } catch (error) {
+      logger.error('Error updating URL in FileStore:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = FileStore;

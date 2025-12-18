@@ -376,7 +376,21 @@
                       <%= new Date(shortUrl.createdAt).toLocaleString() %>
                     </td>
                     <td class="p-4 align-middle text-right">
-                      <div class="flex items-center justify-end">
+                      <div class="flex items-center justify-end space-x-2">
+                        <button
+                          type="button"
+                          class="action-btn inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 w-8 edit-url-btn"
+                          title="Edit URL"
+                          data-short="<%= shortUrl.short %>"
+                          data-full="<%= shortUrl.full %>"
+                          data-aliases="<%= shortUrl.alias.join(',') %>"
+                          onclick="handleEditClick(this)"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
+                            <path d="m15 5 4 4"></path>
+                          </svg>
+                        </button>
                         <form
                           action="/delete"
                           method="POST"

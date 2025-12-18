@@ -170,9 +170,8 @@ function startServer(useMongo = true) {
       const isApiEndpoint = req.method === 'POST' && (
         req.path === '/change-owner' || 
         req.path === '/delete' || 
-        req.path === '/shortUrls' ||
-        req.path === '/spaces' ||
-        req.path.startsWith('/spaces/')
+        req.path.startsWith('/shortUrls') ||
+        req.path.startsWith('/spaces')
       );
 
       const url = new URL(req.protocol + '://' + host + req.originalUrl);
@@ -489,6 +488,50 @@ function startServer(useMongo = true) {
       logger.error("Error changing owner:", error);
       logger.error("Error stack:", error.stack);
       res.status(500).json({ error: `Error changing owner token: ${error.message}`, details: error.toString() });
+    }
+  });
+
+  app.post("/shortUrls/:short/edit", async (req, res) => {
+    try {
+      const { fullUrl, aliases } = req.body;
+      const short = req.params.short;
+      const owner = req.owner;
+      const activeSpace = req.activeSpace;
+
+      if (!fullUrl) {
+        return res.status(400).send("Full URL is required");
+      }
+
+      // Parse aliases from comma-separated string if provided
+      const aliasArray = aliases ? 
+        aliases.split(',').map(a => a.trim()).filter(a => a !== '') : 
+        [];
+
+      if (mongoose.connection.readyState === 1) {
+        const updateData = {
+          full: fullUrl,
+          alias: aliasArray,
+          updatedAt: new Date()
+        };
+
+        const shortUrl = await ShortUrl.findOneAndUpdate(
+          { short, owner, spaceId: activeSpace?._id },
+          updateData,
+          { new: true }
+        );
+
+        if (!shortUrl) {
+          return res.status(404).send("Short URL not found");
+        }
+      } else {
+        // Fallback for FileStore if needed (though not fully implemented in FileStore yet)
+        await global.fileStore.updateUrl(short, owner, fullUrl, aliasArray);
+      }
+
+      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${activeSpace?._id}`);
+    } catch (error) {
+      logger.error("Error editing short URL:", error);
+      res.status(500).send("Error editing short URL");
     }
   });
 

@@ -21,6 +21,13 @@
     });
   }
 
+  function handleEditClick(button) {
+    var short = button.dataset.short;
+    var full = button.dataset.full;
+    var aliases = button.dataset.aliases;
+    showEditUrlDialog(short, full, aliases);
+  }
+
   function initBulkDelete() {
     var selectAll = document.getElementById('selectAll');
     var deleteSelectedBtn = document.getElementById('deleteSelected');
@@ -223,9 +230,38 @@
     }
   }
 
+  function showEditUrlDialog(short, full, aliases) {
+    var body = 
+      '<form id="editUrlForm" action="/shortUrls/' + short + '/edit" method="POST" class="space-y-4">' +
+        '<input type="hidden" name="owner" value="' + window.currentOwnerToken + '" />' +
+        '<input type="hidden" name="space" value="' + window.currentActiveSpaceId + '" />' +
+        '<div>' +
+          '<label for="editFullUrl" class="text-sm font-medium block mb-2">Destination URL</label>' +
+          '<input type="url" id="editFullUrl" name="fullUrl" value="' + full + '" required class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />' +
+        '</div>' +
+        '<div>' +
+          '<label for="editAliases" class="text-sm font-medium block mb-2">Aliases (comma-separated)</label>' +
+          '<input type="text" id="editAliases" name="aliases" value="' + aliases + '" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" placeholder="alias1, alias2" />' +
+          '<p class="text-xs text-muted-foreground mt-2">Multiple aliases can be separated by commas.</p>' +
+        '</div>' +
+      '</form>';
+
+    window.showDialog({
+      title: 'Edit Short URL',
+      description: 'Update the destination URL or aliases for this short link.',
+      body: body,
+      confirmText: 'Save Changes',
+      onConfirm: function() {
+        document.getElementById('editUrlForm').submit();
+      }
+    });
+  }
+
   // Expose to global scope
   window.handleDeleteClick = handleDeleteClick;
+  window.handleEditClick = handleEditClick;
   window.copyToClipboard = copyToClipboard;
+  window.showEditUrlDialog = showEditUrlDialog;
   
   // Initialize on DOM ready
   function init() {
