@@ -4,87 +4,22 @@
 (function() {
   'use strict';
 
-  function handleOwnerTokenKeydown(event, element) {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      element.blur();
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      element.value = window.currentOwnerToken;
-      element.blur();
+  function toggleTokenVisibility() {
+    var input = document.getElementById('ownerTokenDisplay');
+    var eyeIcon = document.getElementById('eyeIcon');
+    if (input.type === 'password') {
+      input.type = 'text';
+      eyeIcon.innerHTML = '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line>';
+    } else {
+      input.type = 'password';
+      eyeIcon.innerHTML = '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>';
     }
-  }
-
-  function handleOwnerTokenChange(element) {
-    var newToken = element.value.trim();
-    
-    // Remove any non-printable characters
-    newToken = newToken.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-    
-    var oldToken = window.currentOwnerToken;
-    
-    // Validate token format: URL-safe characters, 1-128 chars
-    if (!newToken || newToken.length < 1 || newToken.length > 128) {
-      alert('Invalid owner token format. Token must be 1-128 characters long. Current length: ' + newToken.length);
-      element.value = oldToken;
-      return;
-    }
-    
-    // Allow URL-safe characters: alphanumeric, dash, underscore, dot, tilde, at sign
-    if (!/^[a-zA-Z0-9._~@-]+$/.test(newToken)) {
-      var invalidChars = newToken.split('').filter(function(c) {
-        return !/^[a-zA-Z0-9._~@-]$/.test(c);
-      });
-      alert('Invalid owner token format. Use only URL-safe characters (letters, numbers, dash, underscore, dot, tilde, at). Invalid characters found: ' + JSON.stringify(invalidChars));
-      element.value = oldToken;
-      return;
-    }
-
-    if (newToken === oldToken) {
-      return; // No change
-    }
-
-    // Show loading state
-    element.style.opacity = '0.5';
-    element.disabled = true;
-
-    // Call API to change owner
-    fetch('/change-owner', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ newOwner: newToken })
-    })
-    .then(function(response) {
-      if (!response.ok) {
-        return response.json().then(function(err) {
-          throw new Error(err.error || 'Failed to change owner token');
-        });
-      }
-      return response.json();
-    })
-    .then(function(data) {
-      if (data.success) {
-        // Update URL with new owner token
-        var url = new URL(window.location.href);
-        url.searchParams.set('owner', newToken);
-        window.location.href = url.toString();
-      } else {
-        throw new Error(data.error || 'Failed to change owner token');
-      }
-    })
-    .catch(function(error) {
-      console.error('Error changing owner:', error);
-      alert('Failed to change owner token: ' + (error.message || error));
-      element.value = oldToken;
-      element.style.opacity = '1';
-      element.disabled = false;
-    });
   }
 
   function copyDashboardLink() {
-    var fullUrl = window.location.href;
+    var url = new URL(window.location.href);
+    url.searchParams.set('owner', window.currentOwnerToken);
+    var fullUrl = url.toString();
     
     function updateButton(btn, success) {
       var originalHTML = btn.innerHTML;
@@ -153,8 +88,7 @@
   }, 0);
 
   // Expose to global scope
-  window.handleOwnerTokenKeydown = handleOwnerTokenKeydown;
-  window.handleOwnerTokenChange = handleOwnerTokenChange;
+  window.toggleTokenVisibility = toggleTokenVisibility;
   window.copyDashboardLink = copyDashboardLink;
   window.toggleOwnerDropdown = toggleOwnerDropdown;
 })();

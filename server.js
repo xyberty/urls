@@ -169,7 +169,6 @@ function startServer(useMongo = true) {
 
       // 2) Handle management domain logic
       const isApiEndpoint = req.method === 'POST' && (
-        req.path === '/change-owner' || 
         req.path === '/delete' || 
         req.path.startsWith('/shortUrls') ||
         req.path.startsWith('/spaces')
@@ -196,12 +195,8 @@ function startServer(useMongo = true) {
       let currentOwner = queryOwner || cookieOwner;
       if (!isValidOwnerToken(currentOwner)) {
         currentOwner = nanoid(16);
-        setCookie('owner', currentOwner);
-        if (!isApiEndpoint) {
-          url.searchParams.set('owner', currentOwner);
-          return res.redirect(url.pathname + '?' + url.searchParams.toString());
-        }
       }
+      
       req.owner = currentOwner;
       if (cookieOwner !== currentOwner) {
         setCookie('owner', currentOwner);
@@ -232,21 +227,17 @@ function startServer(useMongo = true) {
 
         req.activeSpace = activeSpace;
         
-        // Sync cookie and URL if needed
+        // Sync cookie if needed
         if (cookieSpace !== activeSpace._id.toString()) {
           setCookie('activeSpace', activeSpace._id.toString());
         }
+      }
 
-        if (!isApiEndpoint && querySpace !== activeSpace._id.toString()) {
-          url.searchParams.set('space', activeSpace._id.toString());
-          if (url.searchParams.get('owner') !== currentOwner) {
-            url.searchParams.set('owner', currentOwner);
-          }
-          const target = url.pathname + '?' + url.searchParams.toString();
-          if (target !== req.originalUrl) {
-            return res.redirect(target);
-          }
-        }
+      // 3) Security: Strip secrets from URL after they are moved to cookies
+      if (!isApiEndpoint && (url.searchParams.has('owner') || url.searchParams.has('space'))) {
+        url.searchParams.delete('owner');
+        url.searchParams.delete('space');
+        return res.redirect(url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : ''));
       }
 
       next();
@@ -327,7 +318,7 @@ function startServer(useMongo = true) {
       }
 
       const space = await Space.create({ name, domain, owner });
-      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${space._id}`);
+      res.redirect(`/`);
     } catch (error) {
       logger.error("Error creating space:", error);
       res.status(500).send("Error creating space");
@@ -353,7 +344,7 @@ function startServer(useMongo = true) {
         );
       }
 
-      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${req.params.id}`);
+      res.redirect(`/`);
     } catch (error) {
       logger.error("Error editing space:", error);
       res.status(500).send("Error editing space");
@@ -371,7 +362,7 @@ function startServer(useMongo = true) {
       // 2) Delete the space itself
       await Space.findOneAndDelete({ _id: spaceId, owner });
 
-      res.redirect(`/?owner=${encodeURIComponent(owner)}`);
+      res.redirect(`/`);
     } catch (error) {
       logger.error("Error deleting space:", error);
       res.status(500).send("Error deleting space");
@@ -445,8 +436,8 @@ function startServer(useMongo = true) {
           });
         }
       }
-      // Preserve owner and space in redirect
-      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${activeSpace._id}`);
+      // Preserve owner and space via cookies
+      res.redirect(`/`);
     } catch (error) {
       logger.error("Error creating short URL:", error);
       res.status(500).send("Error creating short URL");
@@ -471,76 +462,6 @@ function startServer(useMongo = true) {
     } catch (error) {
       logger.error("Error exporting URLs:", error);
       res.status(500).send("Error exporting URLs");
-    }
-  });
-
-  // Change owner token - reassigns all URLs from old owner to new owner
-  // MUST come before /:shortUrl route to avoid route conflicts
-  app.post("/change-owner", async (req, res) => {
-    logger.info("Handling change owner request");
-    try {
-      const oldOwner = req.owner;
-      const newOwner = req.body.newOwner;
-
-      logger.info(`Change owner request: oldOwner=${oldOwner}, newOwner=${newOwner}, body=${JSON.stringify(req.body)}, body type=${typeof req.body.newOwner}`);
-
-      if (!newOwner) {
-        logger.warn("No newOwner provided");
-        return res.status(400).json({ error: "New owner token is required" });
-      }
-
-      // Ensure it's a string
-      const newOwnerStr = String(newOwner).trim();
-      
-      if (!isValidOwnerToken(newOwnerStr)) {
-        logger.warn(`Invalid owner token format: ${newOwnerStr} (length: ${newOwnerStr.length})`);
-        const validationResult = {
-          isString: typeof newOwnerStr === 'string',
-          length: newOwnerStr.length,
-          matchesPattern: /^[a-zA-Z0-9._~@-]+$/.test(newOwnerStr),
-          charCodes: newOwnerStr.split('').map(c => c.charCodeAt(0))
-        };
-        logger.warn(`Validation details: ${JSON.stringify(validationResult)}`);
-        return res.status(400).json({ 
-          error: `Invalid owner token format. Token must be 1-128 characters, URL-safe characters only (letters, numbers, dash, underscore, dot, tilde, at). Received: ${newOwnerStr}`,
-          details: validationResult
-        });
-      }
-
-      if (oldOwner === newOwnerStr) {
-        return res.json({ success: true, message: "Owner token unchanged" });
-      }
-
-      if (mongoose.connection.readyState === 1) {
-        try {
-          logger.info(`Attempting MongoDB update: { owner: "${oldOwner}" } -> { owner: "${newOwnerStr}" }`);
-          const result = await ShortUrl.updateMany(
-            { owner: oldOwner },
-            { $set: { owner: newOwnerStr } }
-          );
-          logger.info(`Reassigned ${result.modifiedCount} URLs from ${oldOwner} to ${newOwnerStr}`);
-        } catch (mongoError) {
-          logger.error(`MongoDB error during owner change: ${mongoError.message}`, mongoError);
-          logger.error(`MongoDB error name: ${mongoError.name}, code: ${mongoError.code}`);
-          throw new Error(`Database error: ${mongoError.message}`);
-        }
-      } else {
-        await global.fileStore.reassignOwner(oldOwner, newOwnerStr);
-      }
-
-      // Update cookie and redirect
-      const maxAgeMs = 365 * 24 * 60 * 60 * 1000;
-      const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-      res.setHeader(
-        'Set-Cookie',
-        `owner=${encodeURIComponent(newOwnerStr)}; HttpOnly; Path=/; Max-Age=${Math.floor(maxAgeMs / 1000)}${secureFlag}`
-      );
-
-      res.json({ success: true, newOwner: newOwnerStr });
-    } catch (error) {
-      logger.error("Error changing owner:", error);
-      logger.error("Error stack:", error.stack);
-      res.status(500).json({ error: `Error changing owner token: ${error.message}`, details: error.toString() });
     }
   });
 
@@ -602,7 +523,7 @@ function startServer(useMongo = true) {
         await global.fileStore.updateUrl(short, owner, fullUrl, aliasArray, newShort);
       }
 
-      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${activeSpace?._id}`);
+      res.redirect(`/`);
     } catch (error) {
       logger.error("Error editing short URL:", error);
       res.status(500).send("Error editing short URL");
@@ -670,7 +591,7 @@ function startServer(useMongo = true) {
         await global.fileStore.deleteUrlsForOwner(toDelete, owner);
       }
 
-      res.redirect(`/?owner=${encodeURIComponent(owner)}&space=${req.activeSpace?._id}`);
+      res.redirect(`/`);
     } catch (error) {
       logger.error("Error deleting URLs:", error);
       res.status(500).send("Error deleting URLs");
