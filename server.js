@@ -183,12 +183,13 @@ function startServer(useMongo = true) {
 
       // Helper to set cookie
       const setCookie = (name, value) => {
-        const maxAgeMs = 365 * 24 * 60 * 60 * 1000;
-        const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-        res.setHeader(
-          'Set-Cookie',
-          `${name}=${encodeURIComponent(value)}; HttpOnly; Path=/; Max-Age=${Math.floor(maxAgeMs / 1000)}${secureFlag}`
-        );
+        res.cookie(name, value, {
+          httpOnly: true,
+          path: '/',
+          maxAge: 365 * 24 * 60 * 60 * 1000,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'Lax'
+        });
       };
 
       // --- Owner Logic ---
@@ -293,10 +294,13 @@ function startServer(useMongo = true) {
 
       const existsFn = async (slug) => {
         if (mongoose.connection.readyState === 1) {
-          return await ShortUrl.exists({ domain: activeSpace.domain, short: slug });
+          return await ShortUrl.exists({ 
+            domain: activeSpace.domain, 
+            $or: [{ short: slug }, { alias: slug }] 
+          });
         } else {
           const urls = await global.fileStore.getAllUrls();
-          return urls.some(u => u.short === slug);
+          return urls.some(u => u.short === slug || (u.alias && u.alias.includes(slug)));
         }
       };
 
@@ -387,14 +391,39 @@ function startServer(useMongo = true) {
         let shortUrl = await ShortUrl.findOne({ full, owner, spaceId: activeSpace._id });
         if (shortUrl) {
           if (customSuffix && !shortUrl.alias.includes(customSuffix)) {
+            // Check if this alias is already taken by ANOTHER document
+            const aliasConflict = await ShortUrl.exists({
+              domain: activeSpace.domain,
+              $or: [{ short: customSuffix }, { alias: customSuffix }],
+              _id: { $ne: shortUrl._id }
+            });
+
+            if (aliasConflict) {
+              return res.status(400).send("The custom alias is already taken.");
+            }
+
             shortUrl.alias.push(customSuffix);
             shortUrl.updatedAt = new Date();
             await shortUrl.save();
           }
         } else {
+          // Check if customSuffix is already taken as short or alias
+          if (customSuffix) {
+            const aliasConflict = await ShortUrl.exists({
+              domain: activeSpace.domain,
+              $or: [{ short: customSuffix }, { alias: customSuffix }]
+            });
+            if (aliasConflict) {
+              return res.status(400).send("The custom alias is already taken.");
+            }
+          }
+
           // Use the new unique slug generator
           const existsFn = async (slug) => {
-            return await ShortUrl.exists({ domain: activeSpace.domain, short: slug });
+            return await ShortUrl.exists({ 
+              domain: activeSpace.domain, 
+              $or: [{ short: slug }, { alias: slug }] 
+            });
           };
           const slug = await createUniqueShortUrl(existsFn);
 
@@ -418,11 +447,17 @@ function startServer(useMongo = true) {
 
         if (existingUrl) {
           if (customSuffix && !existingUrl.alias.includes(customSuffix)) {
+            if (urls.some(u => (u.short === customSuffix || (u.alias && u.alias.includes(customSuffix))) && u.short !== existingUrl.short)) {
+              return res.status(400).send("The custom alias is already taken.");
+            }
             const updatedAliases = [...(existingUrl.alias || []), customSuffix];
             await global.fileStore.updateUrl(existingUrl.short, owner, full, updatedAliases);
           }
         } else {
-          const existsFn = async (slug) => urls.some(u => u.short === slug);
+          if (customSuffix && urls.some(u => u.short === customSuffix || (u.alias && u.alias.includes(customSuffix)))) {
+            return res.status(400).send("The custom alias is already taken.");
+          }
+          const existsFn = async (slug) => urls.some(u => u.short === slug || (u.alias && u.alias.includes(slug)));
           const slug = await createUniqueShortUrl(existsFn);
 
           await global.fileStore.saveUrl({ 
@@ -482,6 +517,27 @@ function startServer(useMongo = true) {
         [];
 
       if (mongoose.connection.readyState === 1) {
+        // Find current document to get its ID for exclusion
+        const currentDoc = await ShortUrl.findOne({ short, owner, spaceId: activeSpace?._id });
+        if (!currentDoc) {
+          return res.status(404).send("Short URL not found");
+        }
+
+        // Check for alias conflicts
+        if (aliasArray.length > 0) {
+          const aliasConflict = await ShortUrl.exists({
+            domain: activeSpace.domain,
+            $or: [
+              { short: { $in: aliasArray } },
+              { alias: { $in: aliasArray } }
+            ],
+            _id: { $ne: currentDoc._id }
+          });
+          if (aliasConflict) {
+            return res.status(400).send("One or more aliases are already taken.");
+          }
+        }
+
         const updateData = {
           full: fullUrl,
           alias: aliasArray,
@@ -493,8 +549,8 @@ function startServer(useMongo = true) {
           // Double check it's unique for this domain
           const exists = await ShortUrl.exists({ 
             domain: activeSpace.domain, 
-            short: newShort,
-            _id: { $ne: (await ShortUrl.findOne({ short, owner, spaceId: activeSpace?._id }))?._id }
+            $or: [{ short: newShort }, { alias: newShort }],
+            _id: { $ne: currentDoc._id }
           });
           
           if (exists) {
@@ -504,22 +560,25 @@ function startServer(useMongo = true) {
         }
 
         const shortUrl = await ShortUrl.findOneAndUpdate(
-          { short, owner, spaceId: activeSpace?._id },
+          { _id: currentDoc._id },
           updateData,
           { new: true }
         );
-
-        if (!shortUrl) {
-          return res.status(404).send("Short URL not found");
-        }
       } else {
         // Fallback for FileStore
+        const urls = await global.fileStore.getAllUrls();
+        const otherUrls = urls.filter(u => u.short !== short || u.owner !== owner);
+        
         if (newShort && newShort !== short) {
-          const urls = await global.fileStore.getAllUrls();
-          if (urls.some(u => u.short === newShort)) {
+          if (otherUrls.some(u => u.short === newShort || (u.alias && u.alias.includes(newShort)))) {
             return res.status(400).send("The new short slug is already taken.");
           }
         }
+        
+        if (aliasArray.some(alias => otherUrls.some(u => u.short === alias || (u.alias && u.alias.includes(alias))))) {
+          return res.status(400).send("One or more aliases are already taken.");
+        }
+
         await global.fileStore.updateUrl(short, owner, fullUrl, aliasArray, newShort);
       }
 
