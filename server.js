@@ -314,14 +314,28 @@ function startServer(useMongo = true) {
 
   app.post("/spaces", async (req, res) => {
     try {
-      const { name, domain } = req.body;
+      const { name, domain, suffix } = req.body;
       const owner = req.owner;
       
       if (!name || !domain) {
         return res.status(400).send("Name and domain are required");
       }
 
-      const space = await Space.create({ name, domain, owner });
+      // Normalize suffix: ensure it starts with / and doesn't end with /
+      let normalizedSuffix = (suffix || '').trim();
+      if (normalizedSuffix && !normalizedSuffix.startsWith('/')) {
+        normalizedSuffix = '/' + normalizedSuffix;
+      }
+      if (normalizedSuffix.endsWith('/') && normalizedSuffix.length > 1) {
+        normalizedSuffix = normalizedSuffix.slice(0, -1);
+      }
+
+      const space = await Space.create({ 
+        name, 
+        domain: domain.trim().toLowerCase(), 
+        suffix: normalizedSuffix,
+        owner 
+      });
       res.redirect(`/`);
     } catch (error) {
       logger.error("Error creating space:", error);
@@ -331,12 +345,21 @@ function startServer(useMongo = true) {
 
   app.post("/spaces/:id/edit", async (req, res) => {
     try {
-      const { name, domain } = req.body;
+      const { name, domain, suffix } = req.body;
       const owner = req.owner;
+      
+      // Normalize suffix same way
+      let normalizedSuffix = (suffix || '').trim();
+      if (normalizedSuffix && !normalizedSuffix.startsWith('/')) {
+        normalizedSuffix = '/' + normalizedSuffix;
+      }
+      if (normalizedSuffix.endsWith('/') && normalizedSuffix.length > 1) {
+        normalizedSuffix = normalizedSuffix.slice(0, -1);
+      }
       
       const space = await Space.findOneAndUpdate(
         { _id: req.params.id, owner },
-        { name, domain },
+        { name, domain: domain.trim().toLowerCase(), suffix: normalizedSuffix },
         { new: true }
       );
 
@@ -593,23 +616,76 @@ function startServer(useMongo = true) {
     logger.info("Handling request to /:shortUrl");
     try {
       const host = req.get('host');
+      const requestPath = req.path; // e.g., "/to/ZDns" or "/ZDns"
       let shortUrl;
+      
       if (mongoose.connection.readyState === 1) {
-        shortUrl = await ShortUrl.findOne({
+        // Find all spaces with matching domain
+        const matchingSpaces = await Space.find({ domain: host });
+        
+        // Sort by suffix length (longest first) for most specific match
+        matchingSpaces.sort((a, b) => {
+          const aLen = (a.suffix || '').length;
+          const bLen = (b.suffix || '').length;
+          return bLen - aLen;
+        });
+        
+        let shortCode = null;
+        let matchedSpace = null;
+        
+        // Try to match by suffix (most specific first)
+        for (const space of matchingSpaces) {
+          const suffix = space.suffix || '';
+          
+          if (suffix && requestPath.startsWith(suffix + '/')) {
+            // Path matches this space's suffix - extract short code
+            const remainingPath = requestPath.substring(suffix.length + 1);
+            shortCode = remainingPath.split('/')[0];
+            matchedSpace = space;
+            break;
+          } else if (!suffix && requestPath === '/' + req.params.shortUrl) {
+            // No suffix, direct match
+            shortCode = req.params.shortUrl;
+            matchedSpace = space;
+            break;
+          }
+        }
+        
+        // Fallback: if no suffix match, use direct shortUrl param
+        if (!shortCode) {
+          shortCode = req.params.shortUrl;
+        }
+        
+        // Look up short URL
+        const query = {
           domain: host,
           "$or": [
-            {alias: req.params.shortUrl},
-            {short: req.params.shortUrl}
+            {alias: shortCode},
+            {short: shortCode}
           ]
-        });
+        };
+        
+        // If we matched a specific space, prefer URLs from that space
+        if (matchedSpace) {
+          shortUrl = await ShortUrl.findOne({ ...query, spaceId: matchedSpace._id });
+        }
+        
+        // If not found in matched space, try without space filter
+        if (!shortUrl) {
+          shortUrl = await ShortUrl.findOne(query);
+        }
+        
         if (shortUrl) {
           shortUrl.clicks++;
           await shortUrl.save();
         }
       } else {
-        shortUrl = await global.fileStore.getUrl(req.params.shortUrl);
+        // FileStore fallback - extract last segment
+        const pathSegments = requestPath.split('/').filter(Boolean);
+        const shortCode = pathSegments[pathSegments.length - 1] || req.params.shortUrl;
+        shortUrl = await global.fileStore.getUrl(shortCode);
         if (shortUrl) {
-          await global.fileStore.incrementClicks(req.params.shortUrl);
+          await global.fileStore.incrementClicks(shortCode);
         }
       }
       

@@ -184,12 +184,15 @@
                     <div class="h-px bg-muted my-1"></div>
                     <div>
                       <h4 class="text-sm font-medium mb-2">Current Space: <%= activeSpace.name %></h4>
-                      <p class="text-xs text-muted-foreground mb-4">Domain: <%= activeSpace.domain %></p>
+                      <p class="text-xs text-muted-foreground mb-4">
+                        Domain: <%= activeSpace.domain %><% if (activeSpace.suffix) { %> | Suffix: <%= activeSpace.suffix %><% } %>
+                      </p>
                       <div class="flex space-x-2">
                         <button
                           type="button"
                           class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-8 px-3 flex-1"
-                          onclick="showEditSpaceDialog('<%= activeSpace._id %>', '<%= activeSpace.name %>', '<%= activeSpace.domain %>')"
+                          <% var suffixValue = activeSpace.suffix || ''; %>
+                          onclick="showEditSpaceDialog('<%= activeSpace._id %>', '<%= activeSpace.name %>', '<%= activeSpace.domain %>', '<%= suffixValue %>')"
                         >
                           Edit Space
                         </button>
@@ -318,18 +321,21 @@
                     </td>
                     <td class="p-4 align-middle">
                       <div class="flex items-center">
+                        <% var spaceSuffix = activeSpace && activeSpace.suffix ? activeSpace.suffix : ''; %>
+                        <% var fullShortUrl = shortUrl.domain + spaceSuffix + '/' + shortUrl.short; %>
+                        <% var displayUrl = shortUrl.domain + (spaceSuffix ? spaceSuffix + '/' : '/') + shortUrl.short; %>
                         <a
-                          href="//<%= shortUrl.domain %>/<%= shortUrl.short %>"
+                          href="//<%= fullShortUrl %>"
                           class="text-primary hover:underline font-mono text-xs"
                           target="_blank"
                         >
-                        <%= shortUrl.domain %>/<%= shortUrl.short %>
+                        <%= displayUrl %>
                         </a>
                         <button
                           type="button"
                           class="ml-2 text-muted-foreground hover:text-primary transition-colors"
                           title="Copy short link"
-                          onclick="copyToClipboard(this, '<%= shortUrl.domain %>/<%= shortUrl.short %>')"
+                          onclick="copyToClipboard(this, '<%= fullShortUrl %>')"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
@@ -341,20 +347,23 @@
                     <td class="p-4 align-middle">
                       <% if (shortUrl.alias && shortUrl.alias.length) { %>
                         <div class="flex flex-col space-y-1">
-                          <% shortUrl.alias.forEach(alias => { %>
+                          <% var spaceSuffix = activeSpace && activeSpace.suffix ? activeSpace.suffix : ''; %>
+                          <% shortUrl.alias.forEach(function(alias) { %>
+                            <% var fullAliasUrl = shortUrl.domain + spaceSuffix + '/' + alias; %>
+                            <% var displayAliasUrl = shortUrl.domain + (spaceSuffix ? spaceSuffix + '/' : '/') + alias; %>
                             <div class="flex items-center">
                               <a
-                                href="//<%= shortUrl.domain %>/<%= alias %>"
+                                href="//<%= fullAliasUrl %>"
                                 class="text-primary hover:underline font-mono text-xs"
                                 target="_blank"
                               >
-                                <%= alias %>
+                                <%= displayAliasUrl %>
                               </a>
                               <button
                                 type="button"
                                 class="ml-2 text-muted-foreground hover:text-primary transition-colors"
                                 title="Copy alias link"
-                                onclick="copyToClipboard(this, '<%= shortUrl.domain %>/<%= alias %>')"
+                                onclick="copyToClipboard(this, '<%= fullAliasUrl %>')"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                   <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>

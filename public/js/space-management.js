@@ -38,6 +38,11 @@
             domainOptions +
           '</select>' +
         '</div>' +
+        '<div>' +
+          '<label for="spaceSuffix" class="text-sm font-medium block mb-2">Path Suffix <span class="text-muted-foreground">(optional)</span></label>' +
+          '<input type="text" id="spaceSuffix" name="suffix" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" placeholder="e.g. to, api, docs" />' +
+          '<p class="text-xs text-muted-foreground mt-1">URLs will be accessible at domain.com/suffix/shortcode</p>' +
+        '</div>' +
       '</form>';
 
     window.showDialog({
@@ -51,12 +56,15 @@
     });
   }
 
-  function showEditSpaceDialog(id, name, currentDomain) {
+  function showEditSpaceDialog(id, name, currentDomain, currentSuffix) {
     var domains = JSON.parse(document.getElementById('allowedDomainsData').textContent || '[]');
     var domainOptions = domains.map(function(d) {
       var selected = d === currentDomain ? ' selected' : '';
       return '<option value="' + d + '"' + selected + '>' + d + '</option>';
     }).join('');
+    
+    // Remove leading slash from suffix for display
+    var displaySuffix = (currentSuffix || '').replace(/^\//, '');
 
     var body = 
       '<form id="editSpaceForm" action="/spaces/' + id + '/edit" method="POST" class="space-y-4">' +
@@ -69,6 +77,11 @@
           '<select id="editSpaceDomain" name="domain" required class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">' +
             domainOptions +
           '</select>' +
+        '</div>' +
+        '<div>' +
+          '<label for="editSpaceSuffix" class="text-sm font-medium block mb-2">Path Suffix <span class="text-muted-foreground">(optional)</span></label>' +
+          '<input type="text" id="editSpaceSuffix" name="suffix" value="' + (displaySuffix || '') + '" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" placeholder="e.g. to, api, docs" />' +
+          '<p class="text-xs text-muted-foreground mt-1">URLs will be accessible at domain.com/suffix/shortcode</p>' +
         '</div>' +
       '</form>';
 
