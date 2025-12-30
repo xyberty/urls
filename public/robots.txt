@@ -1,0 +1,9 @@
+# robots.txt for self-hosted URL shortening service
+
+# Disallow crawling of the management interface
+User-agent: *
+Disallow: /
+
+# Allow short URLs (redirects) - remove this section if blocking all crawling required
+# User-agent: *
+# Allow: /*
