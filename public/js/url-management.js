@@ -32,12 +32,23 @@
     var selectAll = document.getElementById('selectAll');
     var deleteSelectedBtn = document.getElementById('deleteSelected');
     var bulkContainer = document.getElementById('bulkDeleteContainer');
+    var lastCheckedIndex = -1;
+    var isShiftClick = false;
 
     function updateBulkVisibility() {
       var anyChecked = !!document.querySelector('.url-select:checked');
       if (bulkContainer) {
         bulkContainer.style.display = anyChecked ? 'block' : 'none';
       }
+    }
+
+    function updateSelectAllState() {
+      if (!selectAll) return;
+      var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.url-select'));
+      var allChecked = checkboxes.every(function(cb) { return cb.checked; });
+      var anyChecked = checkboxes.some(function(cb) { return cb.checked; });
+      selectAll.checked = allChecked;
+      selectAll.indeterminate = anyChecked && !allChecked;
     }
 
     if (selectAll) {
@@ -47,15 +58,63 @@
           cb.checked = selectAll.checked;
         });
         updateBulkVisibility();
+        // Reset last checked index when selecting all/none
+        lastCheckedIndex = selectAll.checked ? checkboxes.length - 1 : -1;
       });
     }
 
     // Use event delegation for checkboxes as they might be re-ordered
+    document.addEventListener('click', function(e) {
+      if (e.target && e.target.classList.contains('url-select')) {
+        var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.url-select'));
+        var currentIndex = checkboxes.indexOf(e.target);
+        var currentCheckbox = checkboxes[currentIndex];
+        
+        // Handle Shift+click for range selection
+        if (e.shiftKey && lastCheckedIndex !== -1 && currentIndex !== -1 && lastCheckedIndex !== currentIndex) {
+          // Prevent default to handle the toggle ourselves
+          e.preventDefault();
+          e.stopPropagation();
+          isShiftClick = true;
+          
+          // Get the state we want to apply (opposite of current, since we'll toggle)
+          var targetState = !currentCheckbox.checked;
+          
+          // Select all checkboxes in the range to match the target state
+          var start = Math.min(lastCheckedIndex, currentIndex);
+          var end = Math.max(lastCheckedIndex, currentIndex);
+          for (var i = start; i <= end; i++) {
+            checkboxes[i].checked = targetState;
+          }
+          
+          // Update lastCheckedIndex to the current checkbox
+          lastCheckedIndex = currentIndex;
+          
+          // Update select all checkbox state
+          updateSelectAllState();
+          updateBulkVisibility();
+          
+          // Reset flag after a short delay
+          setTimeout(function() {
+            isShiftClick = false;
+          }, 0);
+        } else if (!e.shiftKey) {
+          // Normal click - update lastCheckedIndex immediately (before checkbox toggles)
+          lastCheckedIndex = currentIndex;
+        }
+      }
+    });
+
+    // Handle change event to update UI state
     document.addEventListener('change', function(e) {
       if (e.target && e.target.classList.contains('url-select')) {
-        if (!e.target.checked && selectAll) {
-          selectAll.checked = false;
+        // Skip if this was a Shift+click (already handled in click handler)
+        if (isShiftClick) {
+          return;
         }
+        
+        // Update select all checkbox state
+        updateSelectAllState();
         updateBulkVisibility();
       }
     });
@@ -294,11 +353,230 @@
     }, 50);
   }
 
+  function handleRowClick(e, row) {
+    // Only handle on mobile (small screens)
+    if (window.innerWidth >= 768) {
+      return;
+    }
+
+    // Don't trigger if clicking on a link or button
+    if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) {
+      return;
+    }
+
+    var popover = document.getElementById('mobileActionsPopover');
+    var urlText = document.getElementById('mobileActionsUrl');
+    var shortLink = document.getElementById('mobileActionsShortLink');
+    var copyShortBtn = document.getElementById('mobileActionsCopyShort');
+    var editBtn = document.getElementById('mobileActionsEdit');
+    var deleteBtn = document.getElementById('mobileActionsDelete');
+
+    if (!popover || !row) return;
+
+    var short = row.dataset.short;
+    var full = row.dataset.full;
+    var aliasesJson = row.dataset.aliases;
+    var displayUrl = row.dataset.displayUrl;
+    var fullShortUrl = row.dataset.fullShortUrl;
+    var clicks = row.dataset.clicks || '0';
+    var firstClick = row.dataset.firstClick;
+    var lastClick = row.dataset.lastClick;
+    var createdAt = row.dataset.createdAt;
+    var updatedAt = row.dataset.updatedAt;
+    var spaceSuffix = row.dataset.spaceSuffix || '';
+    var domain = row.dataset.domain || '';
+
+    // Parse aliases
+    var aliases = [];
+    try {
+      aliases = aliasesJson ? JSON.parse(aliasesJson) : [];
+    } catch (e) {
+      // Fallback for old format (comma-separated)
+      aliases = aliasesJson ? aliasesJson.split(',').filter(function(a) { return a.trim(); }) : [];
+    }
+
+    // Update popover content
+    if (urlText) urlText.textContent = full;
+    if (shortLink) {
+      shortLink.textContent = displayUrl;
+      shortLink.href = '//' + fullShortUrl;
+    }
+
+    // Update clicks
+    var clicksEl = document.getElementById('mobileActionsClicks');
+    if (clicksEl) clicksEl.textContent = clicks;
+
+    // Update first click
+    var firstClickEl = document.getElementById('mobileActionsFirstClick');
+    if (firstClickEl) {
+      if (firstClick) {
+        firstClickEl.classList.remove('hidden');
+        firstClickEl.querySelector('span:last-child').textContent = new Date(firstClick).toLocaleString();
+      } else {
+        firstClickEl.classList.add('hidden');
+      }
+    }
+
+    // Update last click
+    var lastClickEl = document.getElementById('mobileActionsLastClick');
+    if (lastClickEl) {
+      if (lastClick) {
+        lastClickEl.classList.remove('hidden');
+        lastClickEl.querySelector('span:last-child').textContent = new Date(lastClick).toLocaleString();
+      } else {
+        lastClickEl.classList.add('hidden');
+      }
+    }
+
+    // Update created at
+    var createdAtEl = document.getElementById('mobileActionsCreatedAt');
+    if (createdAtEl && createdAt) {
+      createdAtEl.textContent = new Date(createdAt).toLocaleString();
+    }
+
+    // Update updated at
+    var updatedAtEl = document.getElementById('mobileActionsUpdatedAt');
+    if (updatedAtEl) {
+      if (updatedAt) {
+        updatedAtEl.classList.remove('hidden');
+        updatedAtEl.querySelector('span:last-child').textContent = new Date(updatedAt).toLocaleString();
+      } else {
+        updatedAtEl.classList.add('hidden');
+      }
+    }
+
+    // Update aliases
+    var aliasesContainer = document.getElementById('mobileActionsAliases');
+    var aliasesList = document.getElementById('mobileActionsAliasesList');
+    if (aliasesContainer && aliasesList) {
+      aliasesList.innerHTML = '';
+      if (aliases && aliases.length > 0) {
+        aliasesContainer.classList.remove('hidden');
+        aliases.forEach(function(alias) {
+          var fullAliasUrl = domain + spaceSuffix + '/' + alias;
+          var displayAliasUrl = domain + (spaceSuffix ? spaceSuffix + '/' : '/') + alias;
+          var aliasDiv = document.createElement('div');
+          aliasDiv.className = 'flex items-center space-x-2';
+          var aliasLink = document.createElement('a');
+          aliasLink.href = '//' + fullAliasUrl;
+          aliasLink.target = '_blank';
+          aliasLink.className = 'text-primary hover:underline font-mono text-xs flex-1 truncate';
+          aliasLink.textContent = displayAliasUrl;
+          var aliasCopyBtn = document.createElement('button');
+          aliasCopyBtn.type = 'button';
+          aliasCopyBtn.className = 'inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 flex-shrink-0';
+          aliasCopyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"></path></svg>';
+          aliasCopyBtn.onclick = function(e) {
+            e.stopPropagation();
+            var fullUrl = window.location.protocol + '//' + fullAliasUrl;
+            navigator.clipboard.writeText(fullUrl).then(function() {
+              var originalHTML = aliasCopyBtn.innerHTML;
+              aliasCopyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+              aliasCopyBtn.classList.add('bg-primary', 'text-primary-foreground');
+              setTimeout(function() {
+                aliasCopyBtn.innerHTML = originalHTML;
+                aliasCopyBtn.classList.remove('bg-primary', 'text-primary-foreground');
+              }, 2000);
+            }).catch(function(err) {
+              console.error('Could not copy text: ', err);
+            });
+          };
+          aliasDiv.appendChild(aliasLink);
+          aliasDiv.appendChild(aliasCopyBtn);
+          aliasesList.appendChild(aliasDiv);
+        });
+      } else {
+        aliasesContainer.classList.add('hidden');
+      }
+    }
+
+    // Set up copy button
+    if (copyShortBtn) {
+      copyShortBtn.onclick = function(e) {
+        e.stopPropagation();
+        var fullUrl = window.location.protocol + '//' + fullShortUrl;
+        navigator.clipboard.writeText(fullUrl).then(function() {
+          var originalHTML = copyShortBtn.innerHTML;
+          copyShortBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          copyShortBtn.classList.add('bg-primary', 'text-primary-foreground');
+          setTimeout(function() {
+            copyShortBtn.innerHTML = originalHTML;
+            copyShortBtn.classList.remove('bg-primary', 'text-primary-foreground');
+          }, 2000);
+        }).catch(function(err) {
+          console.error('Could not copy text: ', err);
+        });
+      };
+    }
+
+    // Set up edit button
+    if (editBtn) {
+      editBtn.onclick = function(e) {
+        e.stopPropagation();
+        closeMobileActionsPopover();
+        var aliasesStr = Array.isArray(aliases) ? aliases.join(',') : aliases;
+        showEditUrlDialog(short, full, aliasesStr);
+      };
+    }
+
+    // Set up delete button
+    if (deleteBtn) {
+      deleteBtn.onclick = function(e) {
+        e.stopPropagation();
+        closeMobileActionsPopover();
+        // Create a temporary button element to trigger the delete handler
+        var tempButton = document.createElement('button');
+        tempButton.className = 'delete-btn';
+        tempButton.setAttribute('data-short', short);
+        var tempForm = document.createElement('form');
+        tempForm.action = '/delete';
+        tempForm.method = 'POST';
+        var spaceInput = document.createElement('input');
+        spaceInput.type = 'hidden';
+        spaceInput.name = 'space';
+        spaceInput.value = window.currentActiveSpaceId || '';
+        var shortInput = document.createElement('input');
+        shortInput.type = 'hidden';
+        shortInput.name = 'short';
+        shortInput.value = short;
+        tempForm.appendChild(spaceInput);
+        tempForm.appendChild(shortInput);
+        tempForm.appendChild(tempButton);
+        document.body.appendChild(tempForm);
+        handleDeleteClick(tempButton);
+        document.body.removeChild(tempForm);
+      };
+    }
+
+    // Show popover
+    popover.classList.remove('hidden');
+    popover.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMobileActionsPopover() {
+    var popover = document.getElementById('mobileActionsPopover');
+    if (popover) {
+      popover.classList.add('hidden');
+      popover.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+  }
+
+  // Close popover on Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeMobileActionsPopover();
+    }
+  });
+
   // Expose to global scope
   window.handleDeleteClick = handleDeleteClick;
   window.handleEditClick = handleEditClick;
   window.copyToClipboard = copyToClipboard;
   window.showEditUrlDialog = showEditUrlDialog;
+  window.handleRowClick = handleRowClick;
+  window.closeMobileActionsPopover = closeMobileActionsPopover;
   
   // Initialize on DOM ready
   function init() {

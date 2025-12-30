@@ -106,3 +106,105 @@ tr:hover .action-btn {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Desktop table adjustments - ensure proper column widths */
+@media (min-width: 768px) {
+  table.table-fixed th:nth-child(1),
+  table.table-fixed td:nth-child(1) {
+    width: 12px !important;
+  }
+  
+  /* URL column - flexible but with minimum */
+  table.table-fixed th:nth-child(2),
+  table.table-fixed td:nth-child(2) {
+    width: auto !important;
+    min-width: 200px;
+  }
+  
+  /* Short link column - flexible */
+  table.table-fixed th:nth-child(3),
+  table.table-fixed td:nth-child(3) {
+    width: auto !important;
+    min-width: 150px;
+  }
+  
+  /* Alias column - flexible */
+  table.table-fixed th:nth-child(4),
+  table.table-fixed td:nth-child(4) {
+    width: auto !important;
+    min-width: 120px;
+  }
+  
+  /* Clicks column - fixed narrow width */
+  table.table-fixed th:nth-child(5),
+  table.table-fixed td:nth-child(5) {
+    width: 80px !important;
+    min-width: 80px;
+    max-width: 80px;
+  }
+  
+  /* Created at column - fixed width */
+  table.table-fixed th:nth-child(6),
+  table.table-fixed td:nth-child(6) {
+    width: 140px !important;
+  }
+  
+  /* Actions column - fixed width */
+  table.table-fixed th:nth-child(7),
+  table.table-fixed td:nth-child(7) {
+    width: 100px !important;
+  }
+}
+
+/* Mobile table adjustments */
+@media (max-width: 767px) {
+  /* Prevent horizontal scrolling on mobile */
+  .overflow-x-auto {
+    overflow-x: visible;
+  }
+  
+  table:not(.table-fixed) {
+    table-layout: auto;
+    width: 100%;
+  }
+  
+  table:not(.table-fixed) th,
+  table:not(.table-fixed) td {
+    width: auto !important;
+  }
+  
+  /* Make URL column take more space on mobile */
+  table:not(.table-fixed) th:nth-child(2),
+  table:not(.table-fixed) td:nth-child(2) {
+    min-width: 0;
+    max-width: none;
+  }
+  
+  /* Clicks column should be compact but not too narrow */
+  table:not(.table-fixed) th:last-child,
+  table:not(.table-fixed) td:last-child {
+    white-space: nowrap;
+    min-width: 70px;
+  }
+  
+  /* Ensure table fits on small screens */
+  @media (max-width: 480px) {
+    table:not(.table-fixed) {
+      font-size: 0.875rem;
+    }
+    
+    table:not(.table-fixed) th:nth-child(2),
+    table:not(.table-fixed) td:nth-child(2) {
+      max-width: calc(100vw - 120px);
+    }
+  }
+}
+
+/* Mobile actions popover animation */
+#mobileActionsPopover {
+  backdrop-filter: blur(4px);
+}
+
+#mobileActionsPopover > div {
+  animation: dialog-content-show 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
