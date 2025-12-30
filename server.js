@@ -822,68 +822,85 @@ function startServer(useMongo = true) {
       }
       
       if (mongoose.connection.readyState === 1) {
-        // Find all spaces with matching domain
-        const matchingSpaces = await Space.find({ domain: host });
+        // First, try to match the entire path as a short code or alias
+        // This handles imported URLs with slashes like "a/bausk"
+        const pathWithoutLeadingSlash = requestPath.substring(1); // Remove leading /
+        if (pathWithoutLeadingSlash) {
+          const directQuery = {
+            domain: host,
+            "$or": [
+              {alias: pathWithoutLeadingSlash},
+              {short: pathWithoutLeadingSlash}
+            ]
+          };
+          shortUrl = await ShortUrl.findOne(directQuery);
+        }
         
-        // Sort by suffix length (longest first) for most specific match
-        matchingSpaces.sort((a, b) => {
-          const aLen = (a.suffix || '').length;
-          const bLen = (b.suffix || '').length;
-          return bLen - aLen;
-        });
-        
-        let shortCode = null;
-        let matchedSpace = null;
-        
-        // Try to match by suffix (most specific first)
-        for (const space of matchingSpaces) {
-          const suffix = space.suffix || '';
+        // If direct match failed, try suffix-based matching
+        if (!shortUrl) {
+          // Find all spaces with matching domain
+          const matchingSpaces = await Space.find({ domain: host });
           
-          if (suffix && requestPath.startsWith(suffix + '/')) {
-            // Path matches this space's suffix - extract short code
-            const remainingPath = requestPath.substring(suffix.length + 1);
-            shortCode = remainingPath.split('/')[0];
-            matchedSpace = space;
-            break;
-          } else if (!suffix) {
-            // No suffix space - check if path is a direct match (single segment after /)
-            const pathSegments = requestPath.split('/').filter(Boolean);
-            if (pathSegments.length === 1) {
-              // Direct match for space without suffix
-              shortCode = pathSegments[0];
+          // Sort by suffix length (longest first) for most specific match
+          matchingSpaces.sort((a, b) => {
+            const aLen = (a.suffix || '').length;
+            const bLen = (b.suffix || '').length;
+            return bLen - aLen;
+          });
+          
+          let shortCode = null;
+          let matchedSpace = null;
+          
+          // Try to match by suffix (most specific first)
+          for (const space of matchingSpaces) {
+            const suffix = space.suffix || '';
+            
+            if (suffix && requestPath.startsWith(suffix + '/')) {
+              // Path matches this space's suffix - extract short code
+              const remainingPath = requestPath.substring(suffix.length + 1);
+              shortCode = remainingPath.split('/')[0];
               matchedSpace = space;
               break;
+            } else if (!suffix) {
+              // No suffix space - check if path is a direct match (single segment after /)
+              const pathSegments = requestPath.split('/').filter(Boolean);
+              if (pathSegments.length === 1) {
+                // Direct match for space without suffix
+                shortCode = pathSegments[0];
+                matchedSpace = space;
+                break;
+              }
             }
           }
-        }
-        
-        // Fallback: if no suffix match, extract first segment after /
-        if (!shortCode) {
-          const segments = requestPath.split('/').filter(Boolean);
-          shortCode = segments[0] || null;
-        }
-        
-        if (!shortCode) {
-          return res.sendStatus(404);
-        }
-        
-        // Look up short URL
-        const query = {
-          domain: host,
-          "$or": [
-            {alias: shortCode},
-            {short: shortCode}
-          ]
-        };
-        
-        // If we matched a specific space, prefer URLs from that space
-        if (matchedSpace) {
-          shortUrl = await ShortUrl.findOne({ ...query, spaceId: matchedSpace._id });
-        }
-        
-        // If not found in matched space, try without space filter
-        if (!shortUrl) {
-          shortUrl = await ShortUrl.findOne(query);
+          
+          // Fallback: if no suffix match, extract first segment after /
+          if (!shortCode) {
+            const segments = requestPath.split('/').filter(Boolean);
+            shortCode = segments[0] || null;
+          }
+          
+          if (!shortCode) {
+            return res.sendStatus(404);
+          }
+          
+          // Look up short URL
+          const query = {
+            domain: host,
+            "$or": [
+              {alias: shortCode},
+              {short: shortCode}
+            ]
+          };
+          
+          // If we matched a specific space, prefer URLs from that space
+          if (matchedSpace) {
+            shortUrl = await ShortUrl.findOne({ ...query, spaceId: matchedSpace._id });
+          }
+          
+          // If not found in matched space, try without space filter
+          if (!shortUrl) {
+            shortUrl = await ShortUrl.findOne(query);
+          }
         }
         
         if (shortUrl) {
@@ -896,13 +913,22 @@ function startServer(useMongo = true) {
           await shortUrl.save();
         }
       } else {
-        // FileStore fallback - extract last segment
-        const pathSegments = requestPath.split('/').filter(Boolean);
-        const shortCode = pathSegments[pathSegments.length - 1];
-        if (shortCode) {
-          shortUrl = await global.fileStore.getUrl(shortCode);
+        // FileStore fallback - first try full path, then last segment
+        const pathWithoutLeadingSlash = requestPath.substring(1);
+        if (pathWithoutLeadingSlash) {
+          shortUrl = await global.fileStore.getUrl(pathWithoutLeadingSlash);
           if (shortUrl) {
-            await global.fileStore.incrementClicks(shortCode);
+            await global.fileStore.incrementClicks(pathWithoutLeadingSlash);
+          } else {
+            // Fallback to last segment
+            const pathSegments = requestPath.split('/').filter(Boolean);
+            const shortCode = pathSegments[pathSegments.length - 1];
+            if (shortCode) {
+              shortUrl = await global.fileStore.getUrl(shortCode);
+              if (shortUrl) {
+                await global.fileStore.incrementClicks(shortCode);
+              }
+            }
           }
         }
       }
