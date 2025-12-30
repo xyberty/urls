@@ -424,6 +424,163 @@ function startServer(useMongo = true) {
     }
   });
 
+  app.post("/spaces/:id/import", async (req, res) => {
+    try {
+      const owner = req.owner;
+      const spaceId = req.params.id;
+      const importData = req.body;
+
+      if (!Array.isArray(importData)) {
+        return res.status(400).json({ error: "Import data must be an array" });
+      }
+
+      // Find the space and verify ownership
+      const space = await Space.findOne({ _id: spaceId, owner });
+      if (!space) {
+        return res.status(404).json({ error: "Space not found" });
+      }
+
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ error: "Database not available" });
+      }
+
+      const results = {
+        imported: 0,
+        skipped: 0,
+        errors: []
+      };
+
+      // Process each entry
+      for (let i = 0; i < importData.length; i++) {
+        const entry = importData[i];
+        
+        try {
+          // Validate required fields
+          if (!entry.url || !entry.domainName) {
+            results.skipped++;
+            results.errors.push({
+              index: i,
+              reason: "Missing required fields (url or domainName)"
+            });
+            continue;
+          }
+
+          // Compare domainName with space's domain (case-insensitive)
+          if (entry.domainName.toLowerCase() !== space.domain.toLowerCase()) {
+            results.skipped++;
+            results.errors.push({
+              index: i,
+              reason: `Domain mismatch: ${entry.domainName} does not match space domain ${space.domain}`
+            });
+            continue;
+          }
+
+          // Extract slug from entry (use slug field, or extract from shortUrl)
+          let slug = entry.slug;
+          if (!slug && entry.shortUrl) {
+            // Extract slug from shortUrl (e.g., "disc.re/deseo" -> "deseo")
+            const parts = entry.shortUrl.split('/');
+            slug = parts[parts.length - 1];
+          }
+
+          if (!slug) {
+            results.skipped++;
+            results.errors.push({
+              index: i,
+              reason: "Missing slug (neither 'slug' nor 'shortUrl' provided)"
+            });
+            continue;
+          }
+
+          // Check if URL already exists in this space
+          const existingUrl = await ShortUrl.findOne({ 
+            full: entry.url, 
+            owner, 
+            spaceId: space._id 
+          });
+
+          if (existingUrl) {
+            // URL already exists - update clicks and lastClickAt if provided
+            if (entry.clicks !== undefined) {
+              existingUrl.clicks = entry.clicks;
+            }
+            if (entry.lastClickAt) {
+              existingUrl.lastClickAt = new Date(entry.lastClickAt);
+            }
+            // Add slug as alias if it's not already the short or an alias
+            if (slug !== existingUrl.short && !existingUrl.alias.includes(slug)) {
+              // Check if slug is already taken
+              const slugConflict = await ShortUrl.exists({
+                domain: space.domain,
+                spaceId: space._id,
+                $or: [{ short: slug }, { alias: slug }],
+                _id: { $ne: existingUrl._id }
+              });
+              if (!slugConflict) {
+                existingUrl.alias.push(slug);
+              }
+            }
+            existingUrl.updatedAt = new Date();
+            await existingUrl.save();
+            results.imported++;
+            continue;
+          }
+
+          // Check if slug is already taken
+          const slugConflict = await ShortUrl.exists({
+            domain: space.domain,
+            spaceId: space._id,
+            $or: [{ short: slug }, { alias: slug }]
+          });
+
+          if (slugConflict) {
+            // Generate a new unique slug
+            const existsFn = async (newSlug) => {
+              return await ShortUrl.exists({ 
+                domain: space.domain,
+                spaceId: space._id,
+                $or: [{ short: newSlug }, { alias: newSlug }] 
+              });
+            };
+            slug = await createUniqueShortUrl(existsFn);
+          }
+
+          // Create new ShortUrl entry
+          const shortUrl = new ShortUrl({
+            full: entry.url,
+            short: slug,
+            alias: [],
+            owner,
+            spaceId: space._id,
+            domain: space.domain,
+            clicks: entry.clicks || 0,
+            lastClickAt: entry.lastClickAt ? new Date(entry.lastClickAt) : null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          await shortUrl.save();
+          results.imported++;
+        } catch (error) {
+          results.skipped++;
+          results.errors.push({
+            index: i,
+            reason: error.message || "Unknown error"
+          });
+          logger.error(`Error importing entry ${i}:`, error);
+        }
+      }
+
+      res.json({
+        success: true,
+        results: results
+      });
+    } catch (error) {
+      logger.error("Error importing links:", error);
+      res.status(500).json({ error: "Error importing links: " + error.message });
+    }
+  });
+
   app.post("/shortUrls", async (req, res) => {
     logger.info("Handling request to /shortUrls");
     try {
