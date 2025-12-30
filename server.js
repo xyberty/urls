@@ -13,6 +13,8 @@ const config = require('./config/config');
 const healthRoutes = require('./routes/health');
 const { nanoid } = require('nanoid');
 const { createUniqueShortUrl } = require('./utils/slugGenerator');
+const packageJson = require('./package.json');
+const appVersion = packageJson.version;
 
 // Simple cookie parsing helper (avoids extra dependency)
 function parseCookies(cookieHeader) {
@@ -297,7 +299,8 @@ function startServer(useMongo = true) {
         owner, 
         spaces, 
         activeSpace,
-        allowedDomains: config.allowedDomains 
+        allowedDomains: config.allowedDomains,
+        appVersion
       });
     } catch (error) {
       logger.error("Error fetching URLs:", error);
@@ -306,7 +309,8 @@ function startServer(useMongo = true) {
         owner: req.owner, 
         spaces: [], 
         activeSpace: null,
-        allowedDomains: config.allowedDomains
+        allowedDomains: config.allowedDomains,
+        appVersion
       });
     }
   });
