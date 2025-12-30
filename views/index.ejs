@@ -65,7 +65,7 @@
             <span class="h-8 w-px bg-secondary"></span>
             <span class="text-primary">S</span>
           </h1>
-          <p class="text-muted-foreground">Create and manage your shortened URLs</p>
+          <p class="text-muted-foreground hidden md:block">Create and manage your shortened URLs</p>
         </div>
         <div class="flex items-center space-x-4">
           <% if (owner) { %>
@@ -81,7 +81,13 @@
                   <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"></path>
                   <path d="M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4"></path>
                 </svg>
-                <%= activeSpace ? activeSpace.name + ' · ' + activeSpace.domain : 'Select Space' %>
+                <% if (activeSpace) { %>
+                  <span>
+                    <%= activeSpace.name %><span class="hidden sm:inline">&nbsp;·&nbsp;<%= activeSpace.domain %></span>
+                  </span>
+                <% } else { %>
+                  Select Space
+                <% } %>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-2 opacity-50">
                   <path d="m6 9 6 6 6-6"></path>
                 </svg>
