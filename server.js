@@ -61,6 +61,30 @@ app.use(express.json());
 //app.use('/', healthRoutes);
 app.use('/health', healthRoutes);  // Only catch /health/* routes
 
+async function migrateIndexes() {
+  try {
+    const ShortUrl = require('./shortUrl');
+    const collection = ShortUrl.collection;
+    
+    // Drop old index if it exists
+    try {
+      await collection.dropIndex('domain_aliases');
+      logger.info("Dropped old 'domain_aliases' index");
+    } catch (err) {
+      if (err.code !== 27) { // 27 = IndexNotFound
+        logger.warn(`Error dropping old index (may not exist): ${err.message}`);
+      }
+    }
+    
+    // Ensure new indexes are created (Mongoose will create them automatically, but we can force sync)
+    await ShortUrl.syncIndexes();
+    logger.info("Indexes migrated successfully");
+  } catch (err) {
+    logger.error(`Error migrating indexes: ${err.message}`);
+    // Don't fail startup if index migration fails
+  }
+}
+
 async function connectToDatabase(retryCount = 0) {
   let connected = false;
   try {
@@ -74,6 +98,9 @@ async function connectToDatabase(retryCount = 0) {
     });
     logger.info("Connected to database!");
     connected = true;
+    
+    // Migrate indexes after connection
+    await migrateIndexes();
   } catch (err) {
     logger.error(`Database connection error: ${err.message}`);
     
@@ -295,7 +322,8 @@ function startServer(useMongo = true) {
       const existsFn = async (slug) => {
         if (mongoose.connection.readyState === 1) {
           return await ShortUrl.exists({ 
-            domain: activeSpace.domain, 
+            domain: activeSpace.domain,
+            spaceId: activeSpace._id,
             $or: [{ short: slug }, { alias: slug }] 
           });
         } else {
@@ -414,9 +442,10 @@ function startServer(useMongo = true) {
         let shortUrl = await ShortUrl.findOne({ full, owner, spaceId: activeSpace._id });
         if (shortUrl) {
           if (customSuffix && !shortUrl.alias.includes(customSuffix)) {
-            // Check if this alias is already taken by ANOTHER document
+            // Check if this alias is already taken by ANOTHER document IN THE SAME SPACE
             const aliasConflict = await ShortUrl.exists({
               domain: activeSpace.domain,
+              spaceId: activeSpace._id,
               $or: [{ short: customSuffix }, { alias: customSuffix }],
               _id: { $ne: shortUrl._id }
             });
@@ -430,10 +459,11 @@ function startServer(useMongo = true) {
             await shortUrl.save();
           }
         } else {
-          // Check if customSuffix is already taken as short or alias
+          // Check if customSuffix is already taken as short or alias IN THIS SPACE
           if (customSuffix) {
             const aliasConflict = await ShortUrl.exists({
               domain: activeSpace.domain,
+              spaceId: activeSpace._id,
               $or: [{ short: customSuffix }, { alias: customSuffix }]
             });
             if (aliasConflict) {
@@ -441,10 +471,11 @@ function startServer(useMongo = true) {
             }
           }
 
-          // Use the new unique slug generator
+          // Use the new unique slug generator - check uniqueness within the space
           const existsFn = async (slug) => {
             return await ShortUrl.exists({ 
-              domain: activeSpace.domain, 
+              domain: activeSpace.domain,
+              spaceId: activeSpace._id,
               $or: [{ short: slug }, { alias: slug }] 
             });
           };
@@ -546,10 +577,11 @@ function startServer(useMongo = true) {
           return res.status(404).send("Short URL not found");
         }
 
-        // Check for alias conflicts
+        // Check for alias conflicts - within the same space
         if (aliasArray.length > 0) {
           const aliasConflict = await ShortUrl.exists({
             domain: activeSpace.domain,
+            spaceId: activeSpace._id,
             $or: [
               { short: { $in: aliasArray } },
               { alias: { $in: aliasArray } }
@@ -569,9 +601,10 @@ function startServer(useMongo = true) {
 
         // If a new short slug is provided and it's different, update it
         if (newShort && newShort !== short) {
-          // Double check it's unique for this domain
+          // Double check it's unique for this space
           const exists = await ShortUrl.exists({ 
-            domain: activeSpace.domain, 
+            domain: activeSpace.domain,
+            spaceId: activeSpace._id,
             $or: [{ short: newShort }, { alias: newShort }],
             _id: { $ne: currentDoc._id }
           });
@@ -612,12 +645,20 @@ function startServer(useMongo = true) {
     }
   });
 
-  app.get("/:shortUrl", async (req, res) => {
-    logger.info("Handling request to /:shortUrl");
+  // Use wildcard route to capture full paths including suffixes
+  // This must be the last route to catch all unmatched paths
+  app.get("*", async (req, res) => {
+    logger.info("Handling request to *");
     try {
       const host = req.get('host');
       const requestPath = req.path; // e.g., "/to/ZDns" or "/ZDns"
       let shortUrl;
+      
+      // Skip if this is a known route
+      if (requestPath === '/' || requestPath.startsWith('/health') || 
+          requestPath.startsWith('/export') || requestPath.startsWith('/api/')) {
+        return res.sendStatus(404);
+      }
       
       if (mongoose.connection.readyState === 1) {
         // Find all spaces with matching domain
@@ -643,17 +684,26 @@ function startServer(useMongo = true) {
             shortCode = remainingPath.split('/')[0];
             matchedSpace = space;
             break;
-          } else if (!suffix && requestPath === '/' + req.params.shortUrl) {
-            // No suffix, direct match
-            shortCode = req.params.shortUrl;
-            matchedSpace = space;
-            break;
+          } else if (!suffix) {
+            // No suffix space - check if path is a direct match (single segment after /)
+            const pathSegments = requestPath.split('/').filter(Boolean);
+            if (pathSegments.length === 1) {
+              // Direct match for space without suffix
+              shortCode = pathSegments[0];
+              matchedSpace = space;
+              break;
+            }
           }
         }
         
-        // Fallback: if no suffix match, use direct shortUrl param
+        // Fallback: if no suffix match, extract first segment after /
         if (!shortCode) {
-          shortCode = req.params.shortUrl;
+          const segments = requestPath.split('/').filter(Boolean);
+          shortCode = segments[0] || null;
+        }
+        
+        if (!shortCode) {
+          return res.sendStatus(404);
         }
         
         // Look up short URL
@@ -682,10 +732,12 @@ function startServer(useMongo = true) {
       } else {
         // FileStore fallback - extract last segment
         const pathSegments = requestPath.split('/').filter(Boolean);
-        const shortCode = pathSegments[pathSegments.length - 1] || req.params.shortUrl;
-        shortUrl = await global.fileStore.getUrl(shortCode);
-        if (shortUrl) {
-          await global.fileStore.incrementClicks(shortCode);
+        const shortCode = pathSegments[pathSegments.length - 1];
+        if (shortCode) {
+          shortUrl = await global.fileStore.getUrl(shortCode);
+          if (shortUrl) {
+            await global.fileStore.incrementClicks(shortCode);
+          }
         }
       }
       
