@@ -260,7 +260,22 @@
       
       <% if (shortUrls.length === 0) { %>
         <div class="rounded-lg border border-input border-dashed bg-muted/50 p-12 text-center">
-          <p class="text-muted-foreground">No URLs have been shortened yet.</p>
+          <p class="text-muted-foreground mb-4">No URLs have been shortened yet.</p>
+          <% if (activeSpace) { %>
+            <button
+              type="button"
+              id="importBtnEmpty"
+              class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4"
+              onclick="showImportLinksDialog('<%= activeSpace._id %>', '<%= activeSpace.name %>', '<%= activeSpace.domain %>')"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" x2="12" y1="3" y2="15"></line>
+              </svg>
+              Import Links
+            </button>
+          <% } %>
         </div>
       <% } else { %>
         <div class="rounded-lg border border-input bg-card text-card-foreground shadow-sm overflow-hidden">
