@@ -559,8 +559,8 @@ function startServer(useMongo = true) {
             domain: space.domain,
             clicks: entry.clicks || 0,
             lastClickAt: entry.lastClickAt ? new Date(entry.lastClickAt) : null,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            createdAt: entry.createdAt ? new Date(entry.createdAt) : new Date(),
+            updatedAt: entry.updatedAt ? new Date(entry.updatedAt) : new Date()
           });
 
           await shortUrl.save();
