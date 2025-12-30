@@ -70,12 +70,30 @@ class FileStore {
       url.short === shortCode || (url.alias && url.alias.includes(shortCode))
     );
     if (url) {
-      url.clicks++;
       const now = new Date();
-      url.lastClickAt = now;
+      const originalClicks = url.clicks;
+      url.clicks++;
+      
+      // Handle imported URLs with existing click data
       if (!url.firstClickAt) {
-        url.firstClickAt = now;
+        if (url.lastClickAt && originalClicks > 0) {
+          // Case 1: firstClickAt is null, lastClickAt is not null, clicks > 0
+          url.firstClickAt = url.lastClickAt;
+          url.lastClickAt = now;
+        } else if (!url.lastClickAt && originalClicks > 0) {
+          // Case 2: firstClickAt is null, lastClickAt is null, clicks > 0
+          url.firstClickAt = url.updatedAt || now;
+          url.lastClickAt = now;
+        } else {
+          // Case 3: Normal case (first click, clicks was 0)
+          url.firstClickAt = now;
+          url.lastClickAt = now;
+        }
+      } else {
+        // firstClickAt already exists, just update lastClickAt
+        url.lastClickAt = now;
       }
+      
       url.updatedAt = now;
       await fs.writeFile(this.filePath, JSON.stringify(urls, null, 2));
     }

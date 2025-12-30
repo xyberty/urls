@@ -904,12 +904,30 @@ function startServer(useMongo = true) {
         }
         
         if (shortUrl) {
-          shortUrl.clicks++;
           const now = new Date();
-          shortUrl.lastClickAt = now;
+          const originalClicks = shortUrl.clicks;
+          shortUrl.clicks++;
+          
+          // Handle imported URLs with existing click data
           if (!shortUrl.firstClickAt) {
-            shortUrl.firstClickAt = now;
+            if (shortUrl.lastClickAt && originalClicks > 0) {
+              // Case 1: firstClickAt is null, lastClickAt is not null, clicks > 0
+              shortUrl.firstClickAt = shortUrl.lastClickAt;
+              shortUrl.lastClickAt = now;
+            } else if (!shortUrl.lastClickAt && originalClicks > 0) {
+              // Case 2: firstClickAt is null, lastClickAt is null, clicks > 0
+              shortUrl.firstClickAt = shortUrl.updatedAt || now;
+              shortUrl.lastClickAt = now;
+            } else {
+              // Case 3: Normal case (first click, clicks was 0)
+              shortUrl.firstClickAt = now;
+              shortUrl.lastClickAt = now;
+            }
+          } else {
+            // firstClickAt already exists, just update lastClickAt
+            shortUrl.lastClickAt = now;
           }
+          
           await shortUrl.save();
         }
       } else {
