@@ -265,7 +265,7 @@
       <% } else { %>
         <div class="rounded-lg border border-input bg-card text-card-foreground shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
-            <table class="w-full caption-bottom text-sm">
+            <table class="w-full caption-bottom text-sm table-fixed">
               <thead class="[&_tr]:border-b">
                 <tr class="border-b border-input transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                   <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-12">
@@ -275,37 +275,37 @@
                       class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     />
                   </th>
-                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable" data-sort="full">
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable w-0" style="width: 25%;">
                     <div class="flex items-center">
                       URL
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 sort-icon"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg>
                     </div>
                   </th>
-                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable" data-sort="short">
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable" data-sort="short" style="width: 20%;">
                     <div class="flex items-center">
                       Short link
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 sort-icon"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg>
                     </div>
                   </th>
-                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable" data-sort="alias">
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable hidden md:table-cell" data-sort="alias" style="width: 15%;">
                     <div class="flex items-center">
                       Alias
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 sort-icon"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg>
                     </div>
                   </th>
-                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable" data-sort="clicks" data-type="number">
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable" data-sort="clicks" data-type="number" style="width: 8%;">
                     <div class="flex items-center">
                       Clicks
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 sort-icon"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg>
                     </div>
                   </th>
-                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable" data-sort="createdAt" data-type="date">
+                  <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground group sortable hidden lg:table-cell" data-sort="createdAt" data-type="date" style="width: 12%;">
                     <div class="flex items-center">
                       Created at
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 sort-icon"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg>
                     </div>
                   </th>
-                  <th class="h-12 px-4 text-right align-middle font-medium text-muted-foreground w-24">Actions</th>
+                  <th class="h-12 px-4 text-right align-middle font-medium text-muted-foreground" style="width: 100px;">Actions</th>
                 </tr>
               </thead>
               <tbody class="[&_tr:last-child]:border-0">
@@ -320,25 +320,25 @@
                       />
                     </td>
                     <td class="p-4 align-middle">
-                      <div class="max-w-md truncate" title="<%= shortUrl.full %>">
+                      <div class="truncate" title="<%= shortUrl.full %>">
                         <%= shortUrl.full %>
                       </div>
                     </td>
                     <td class="p-4 align-middle">
-                      <div class="flex items-center">
+                      <div class="flex items-center min-w-0">
                         <% var spaceSuffix = activeSpace && activeSpace.suffix ? activeSpace.suffix : ''; %>
                         <% var fullShortUrl = shortUrl.domain + spaceSuffix + '/' + shortUrl.short; %>
                         <% var displayUrl = shortUrl.domain + (spaceSuffix ? spaceSuffix + '/' : '/') + shortUrl.short; %>
                         <a
                           href="//<%= fullShortUrl %>"
-                          class="text-primary hover:underline font-mono text-xs"
+                          class="text-primary hover:underline font-mono text-xs truncate"
                           target="_blank"
                         >
                         <%= displayUrl %>
                         </a>
                         <button
                           type="button"
-                          class="ml-2 text-muted-foreground hover:text-primary transition-colors"
+                          class="ml-2 flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
                           title="Copy short link"
                           onclick="copyToClipboard(this, '<%= fullShortUrl %>')"
                         >
@@ -349,24 +349,24 @@
                         </button>
                       </div>
                     </td>
-                    <td class="p-4 align-middle">
+                    <td class="p-4 align-middle hidden md:table-cell">
                       <% if (shortUrl.alias && shortUrl.alias.length) { %>
                         <div class="flex flex-col space-y-1">
                           <% var spaceSuffix = activeSpace && activeSpace.suffix ? activeSpace.suffix : ''; %>
                           <% shortUrl.alias.forEach(function(alias) { %>
                             <% var fullAliasUrl = shortUrl.domain + spaceSuffix + '/' + alias; %>
                             <% var displayAliasUrl = shortUrl.domain + (spaceSuffix ? spaceSuffix + '/' : '/') + alias; %>
-                            <div class="flex items-center">
+                            <div class="flex items-center min-w-0">
                               <a
                                 href="//<%= fullAliasUrl %>"
-                                class="text-primary hover:underline font-mono text-xs"
+                                class="text-primary hover:underline font-mono text-xs truncate"
                                 target="_blank"
                               >
                                 <%= displayAliasUrl %>
                               </a>
                               <button
                                 type="button"
-                                class="ml-2 text-muted-foreground hover:text-primary transition-colors"
+                                class="ml-2 flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
                                 title="Copy alias link"
                                 onclick="copyToClipboard(this, '<%= fullAliasUrl %>')"
                               >
@@ -403,14 +403,14 @@
                         <%= shortUrl.clicks %>
                       </span>
                     </td>
-                    <td class="p-4 align-middle text-muted-foreground" data-value="<%= new Date(shortUrl.createdAt).getTime() %>">
+                    <td class="p-4 align-middle text-muted-foreground hidden lg:table-cell" data-value="<%= new Date(shortUrl.createdAt).getTime() %>">
                       <%= new Date(shortUrl.createdAt).toLocaleString() %>
                     </td>
                     <td class="p-4 align-middle text-right">
-                      <div class="flex items-center justify-end space-x-2">
+                      <div class="flex items-center justify-end space-x-1 flex-shrink-0">
                         <button
                           type="button"
-                          class="action-btn inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 w-8 edit-url-btn"
+                          class="action-btn inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 w-8 flex-shrink-0 edit-url-btn"
                           title="Edit URL"
                           data-short="<%= shortUrl.short %>"
                           data-full="<%= shortUrl.full %>"
@@ -425,14 +425,14 @@
                         <form
                           action="/delete"
                           method="POST"
-                          class="inline delete-form"
+                          class="inline delete-form flex-shrink-0"
                           data-short="<%= shortUrl.short %>"
                         >
                           <input type="hidden" name="space" value="<%= activeSpace ? activeSpace._id : '' %>" />
                           <input type="hidden" name="short" value="<%= shortUrl.short %>" />
                           <button
                             type="button"
-                            class="action-btn delete-btn inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-8 w-8"
+                            class="action-btn delete-btn inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-8 w-8 flex-shrink-0"
                             title="Delete this URL"
                             onclick="handleDeleteClick(this)"
                           >
