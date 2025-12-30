@@ -378,7 +378,23 @@
                       <% } %>
                     </td>
                     <td class="p-4 align-middle" data-value="<%= shortUrl.clicks %>">
-                      <span class="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">
+                      <span 
+                        class="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold"
+                        <% 
+                          let tooltipText = '';
+                          if (shortUrl.firstClickAt || shortUrl.lastClickAt) {
+                            const parts = [];
+                            if (shortUrl.firstClickAt) {
+                              parts.push('First click: ' + new Date(shortUrl.firstClickAt).toLocaleString());
+                            }
+                            if (shortUrl.lastClickAt) {
+                              parts.push('Last click: ' + new Date(shortUrl.lastClickAt).toLocaleString());
+                            }
+                            tooltipText = parts.join('\n');
+                          }
+                        %>
+                        <% if (tooltipText) { %>title="<%= tooltipText %>"<% } %>
+                      >
                         <%= shortUrl.clicks %>
                       </span>
                     </td>

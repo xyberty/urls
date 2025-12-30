@@ -727,6 +727,11 @@ function startServer(useMongo = true) {
         
         if (shortUrl) {
           shortUrl.clicks++;
+          const now = new Date();
+          shortUrl.lastClickAt = now;
+          if (!shortUrl.firstClickAt) {
+            shortUrl.firstClickAt = now;
+          }
           await shortUrl.save();
         }
       } else {

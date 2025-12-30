@@ -71,7 +71,12 @@ class FileStore {
     );
     if (url) {
       url.clicks++;
-      url.updatedAt = new Date();
+      const now = new Date();
+      url.lastClickAt = now;
+      if (!url.firstClickAt) {
+        url.firstClickAt = now;
+      }
+      url.updatedAt = now;
       await fs.writeFile(this.filePath, JSON.stringify(urls, null, 2));
     }
     return url;
